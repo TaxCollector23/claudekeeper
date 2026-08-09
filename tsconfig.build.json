@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "declaration": false,
+    "sourceMap": true,
+    "noEmit": false
+  },
+  "exclude": ["src/dashboard/**/*", "node_modules", "dist"]
+}
