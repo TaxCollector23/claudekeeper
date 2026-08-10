@@ -22,17 +22,17 @@ lid state instead of pretending everything is fine.
 
 ## Install
 
-From npm:
+From npm (published under a user scope; the command is still `claudekeeper`):
 
 ```bash
-npm install -g claudekeeper
+npm install -g @rangan23/claudekeeper
 claudekeeper doctor
 ```
 
 Or run without installing:
 
 ```bash
-npx claudekeeper doctor
+npx @rangan23/claudekeeper doctor
 ```
 
 Dev install from source:

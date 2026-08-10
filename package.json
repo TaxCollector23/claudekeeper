@@ -1,5 +1,5 @@
 {
-  "name": "claudekeeper",
+  "name": "@rangan23/claudekeeper",
   "version": "0.1.0",
   "description": "Local supervisor for Claude Code — keeps sessions running and the Mac awake.",
   "type": "module",
