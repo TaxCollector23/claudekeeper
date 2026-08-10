@@ -1,9 +1,9 @@
-import type { LogRepository } from '../database/repositories.js';
+import type { ILogRepository } from '../database/repo-types.js';
 import type { Config } from '../shared/config.js';
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 
-export function startLogRotation(logRepo: LogRepository, config: Config): () => void {
+export function startLogRotation(logRepo: ILogRepository, config: Config): () => void {
   const run = () => {
     try {
       const purged = logRepo.purgeOlderThan(config.logRetentionDays);

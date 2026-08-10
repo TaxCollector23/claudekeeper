@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { openDatabase } from '../database/client.js';
-import { EventRepository, LogRepository, SessionRepository } from '../database/repositories.js';
+import {
+  MemorySessionRepository,
+  MemoryEventRepository,
+  MemoryLogRepository,
+} from '../database/memory-store.js';
 import { EventBus } from '../core/events.js';
 import { DefaultClaudeAdapter } from '../core/claude-adapter.js';
 import { SessionManager } from '../core/session-manager.js';
@@ -29,10 +32,9 @@ async function main() {
   }
   fs.writeFileSync(PID_FILE, String(process.pid));
 
-  const db = openDatabase();
-  const sessionRepo = new SessionRepository(db);
-  const eventRepo = new EventRepository(db);
-  const logRepo = new LogRepository(db);
+  const sessionRepo = new MemorySessionRepository();
+  const eventRepo = new MemoryEventRepository();
+  const logRepo = new MemoryLogRepository();
   const bus = new EventBus();
   const claude = new DefaultClaudeAdapter();
   const sleep = new SleepAssertion();
@@ -91,11 +93,6 @@ async function main() {
       setTimeout(() => { timedOut = true; resolve(); }, 3000).unref()
     );
     await Promise.race([closePromise, timeoutPromise]);
-    try {
-      db.close();
-    } catch {
-      /* ignore */
-    }
     try {
       fs.unlinkSync(PID_FILE);
     } catch {

@@ -8,7 +8,7 @@ program
   .description(
     'Keep Claude working. Prevents your Mac from sleeping — including when the lid is closed — so Claude Code keeps running.'
   )
-  .version('0.2.0');
+  .version('0.3.0');
 
 const daemon = program.command('daemon').description('Manage the ClaudeKeeper daemon');
 

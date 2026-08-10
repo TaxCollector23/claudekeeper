@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import type { EventBus } from './events.js';
 import type { ClaudeAdapter } from './claude-adapter.js';
-import type { SessionRepository, EventRepository, LogRepository } from '../database/repositories.js';
+import type { ISessionRepository, IEventRepository, ILogRepository, SessionPatch } from '../database/repo-types.js';
 import type { SleepAssertion } from '../macos/power.js';
 import type { Session, SessionStatus, LogStream } from '../shared/types.js';
 import { canTransition, isTerminal } from './state-machine.js';
@@ -35,9 +35,9 @@ export class SessionManager {
   private running = new Map<string, RunningEntry>();
 
   constructor(
-    private repo: SessionRepository,
-    private events: EventRepository,
-    private logs: LogRepository,
+    private repo: ISessionRepository,
+    private events: IEventRepository,
+    private logs: ILogRepository,
     private bus: EventBus,
     private claude: ClaudeAdapter,
     private sleep: SleepAssertion,
@@ -308,7 +308,7 @@ export class SessionManager {
       // still record, but don't crash — state machine is a guardrail, not a jail
     }
     const nowIso = new Date().toISOString();
-    const patch: Parameters<SessionRepository['update']>[1] = { status: next };
+    const patch: SessionPatch = { status: next };
     if (isTerminal(next)) patch.endedAt = nowIso;
     if (extra?.exitCode !== undefined) patch.exitCode = extra.exitCode;
     this.repo.update(session.id, patch);

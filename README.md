@@ -4,7 +4,7 @@ Local supervisor for Claude Code. Keep Claude working.
 
 <!-- TODO: dashboard screenshot -->
 
-macOS. Node 24+. MIT.
+macOS. Node 18+. MIT.
 
 ---
 
@@ -38,14 +38,14 @@ npx @rangan23/claudekeeper daemon start
 Dev install from source:
 
 ```bash
-git clone https://github.com/claudekeeper/claudekeeper
+git clone https://github.com/TaxCollector23/claudekeeper
 cd claudekeeper
 npm install
 npm run build
 ./scripts/install.sh   # registers the launchd agent + symlinks the CLI
 ```
 
-Requires macOS and Node.js 24 or newer (ClaudeKeeper uses the built-in node:sqlite, stable on Node 24+).
+Requires macOS and Node.js 18 or newer.
 
 ## Quick start
 
@@ -139,7 +139,7 @@ its own. Use `--no-lid` to skip this entirely (idle-sleep prevention only).
 ```bash
 npm install
 npm run typecheck        # tsc --noEmit
-npm run test             # vitest run (112 tests)
+npm run test             # vitest run (114 tests)
 npm run build            # daemon + dashboard
 npm run daemon           # run the daemon in foreground via tsx
 npm run dashboard:dev    # vite dev server for the dashboard

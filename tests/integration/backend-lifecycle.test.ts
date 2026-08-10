@@ -5,10 +5,10 @@ import { DefaultClaudeAdapter } from '../../src/core/claude-adapter.js';
 import type { SleepAssertion } from '../../src/macos/power.js';
 import type { Session, SessionStatus, LogStream } from '../../src/shared/types.js';
 import type {
-  SessionRepository,
-  EventRepository,
-  LogRepository,
-} from '../../src/database/repositories.js';
+  ISessionRepository as SessionRepository,
+  IEventRepository as EventRepository,
+  ILogRepository as LogRepository,
+} from '../../src/database/repo-types.js';
 
 /**
  * End-to-end backend lifecycle against REAL OS processes. Uses /bin/sh as the

@@ -8,7 +8,7 @@ import {
 } from '../../src/core/session-manager.js';
 import { EventBus } from '../../src/core/events.js';
 import type { ClaudeAdapter } from '../../src/core/claude-adapter.js';
-import type { SessionRepository, EventRepository, LogRepository } from '../../src/database/repositories.js';
+import type { ISessionRepository as SessionRepository, IEventRepository as EventRepository, ILogRepository as LogRepository } from '../../src/database/repo-types.js';
 import type { SleepAssertion } from '../../src/macos/power.js';
 import type { Session } from '../../src/shared/types.js';
 

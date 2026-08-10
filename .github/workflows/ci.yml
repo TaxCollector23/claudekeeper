@@ -14,8 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest]
-        # node:sqlite is only stable (unflagged) on Node 24+.
-        node: ['24']
+        node: ['18', '20', '22']
     steps:
       - uses: actions/checkout@v4
 

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { EventBus } from './events.js';
-import type { SessionRepository } from '../database/repositories.js';
+import type { ISessionRepository } from '../database/repo-types.js';
 import type { Config } from '../shared/config.js';
 import type { KeeperEvent } from '../shared/types.js';
 import { notify } from '../macos/system.js';
@@ -17,7 +17,7 @@ export class Notifier {
 
   constructor(
     private bus: EventBus,
-    private sessionRepo: SessionRepository,
+    private sessionRepo: ISessionRepository,
     private config: Config
   ) {}
 

@@ -19,14 +19,15 @@ function daemonEntry(): { command: string; args: string[] } {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** ClaudeKeeper accent — terracotta orange (#d97757) via truecolor ANSI. */
+const orange = (s: string) => `\x1b[38;2;217;119;87m${s}\x1b[0m`;
+
 export async function daemonStart(opts: { lid?: boolean } = {}) {
   const cfg = loadConfig();
   const url = `http://${cfg.host}:${cfg.port}`;
   const enableLid = opts.lid !== false; // default on; `--no-lid` turns it off
 
-  if (await daemonReachable()) {
-    console.log(`${pc.dim('•')} daemon already running on ${pc.cyan(url)}`);
-  } else {
+  if (!(await daemonReachable())) {
     fs.mkdirSync(LOG_DIR, { recursive: true });
     const out = fs.openSync(path.join(LOG_DIR, 'daemon.out.log'), 'a');
     const err = fs.openSync(path.join(LOG_DIR, 'daemon.err.log'), 'a');
@@ -50,35 +51,18 @@ export async function daemonStart(opts: { lid?: boolean } = {}) {
         console.error(`${pc.red('✕')} ${line.trim()}`);
         process.exit(1);
       }
-      console.error(`${pc.red('✕')} daemon didn't respond; check ${LOG_DIR}/daemon.err.log`);
+      console.error(`${pc.red('✕')} couldn't start — see ${LOG_DIR}/daemon.err.log`);
       process.exit(1);
     }
-    console.log(`${pc.green('✓')} daemon running on ${pc.cyan(url)} ${pc.dim(`(pid ${child.pid})`)}`);
-    console.log(`  ${pc.dim('dashboard')}  ${pc.cyan(url)}`);
   }
 
-  // Lid-close survival — the part that actually keeps Claude working when you
-  // close the laptop. Needs sudo (macOS forces sleep on lid close otherwise).
-  if (!enableLid) {
-    console.log('');
-    console.log(pc.dim('  --no-lid: idle-sleep prevention only; closing the lid will still sleep the Mac.'));
-    return;
-  }
-  console.log('');
-  console.log(pc.bold('Keep running with the lid closed'));
-  console.log(pc.dim('  Setting `pmset disablesleep` (needs sudo). Without this, macOS'));
-  console.log(pc.dim('  sleeps the moment you close the lid and Claude would pause.'));
-  const ok = setLidCloseStayAwake(true);
-  if (ok) {
-    console.log(`${pc.green('✓')} lid-close sleep disabled — Claude keeps running with the lid shut`);
-    console.log(
-      `  ${pc.yellow('⚠')} ${pc.dim('Best on AC power. A closed Mac running on battery in a bag can overheat.')}`
-    );
-  } else {
-    console.log(`${pc.yellow('⚠')} could not disable lid-close sleep (sudo declined or unavailable)`);
-    console.log(pc.dim('  The daemon still prevents idle sleep, but closing the lid will sleep the Mac.'));
-    console.log(pc.dim('  Re-run `claudekeeper daemon start` and approve the sudo prompt to enable it.'));
-  }
+  // Lid-close: the one thing that actually keeps the Mac awake with the lid shut.
+  const lidOn = enableLid ? setLidCloseStayAwake(true) : false;
+
+  console.log(`${orange('●')} ClaudeKeeper running on ${orange(url)}`);
+  if (lidOn) console.log(`  keeping your Mac awake, even with the lid closed`);
+  else if (enableLid) console.log(`  keeping your Mac awake while the lid is open`);
+  else console.log(`  keeping your Mac awake while the lid is open`);
 }
 
 function tailFile(p: string, bytes: number): string | null {

@@ -1,13 +1,13 @@
 {
   "name": "@rangan23/claudekeeper",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Keep Claude Code working — prevents your Mac from sleeping, including with the lid closed.",
   "type": "module",
   "license": "MIT",
   "author": "ClaudeKeeper Contributors",
   "repository": {
     "type": "git",
-    "url": "https://github.com/claudekeeper/claudekeeper.git"
+    "url": "https://github.com/TaxCollector23/claudekeeper.git"
   },
   "keywords": [
     "claude",
@@ -67,6 +67,6 @@
     "vitest": "^2.1.9"
   },
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=18.0.0"
   }
 }
