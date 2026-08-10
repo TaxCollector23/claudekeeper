@@ -54,7 +54,7 @@ export async function daemonStart() {
     }
   }
 
-  console.log(`${orange('●')} ClaudeKeeper running on ${orange(url)}`);
+  console.log(`${orange('●')} ${orange('ClaudeKeeper')} running on ${orange(url)}`);
 
   // Preferred path: the no-admin AppliesOnLidClose assertion the daemon already
   // holds. If this Mac honors it, we're done — close the lid, no password.
@@ -109,7 +109,7 @@ export async function daemonStop() {
   }
   try {
     process.kill(pid, 'SIGTERM');
-    console.log(`${orange('●')} ClaudeKeeper stopped — your Mac can sleep normally again`);
+    console.log(`${orange('●')} ${orange('ClaudeKeeper')} stopped — your Mac can sleep normally again`);
   } catch (err: any) {
     console.error(`${pc.red('✕')} ${err.message}`);
   }

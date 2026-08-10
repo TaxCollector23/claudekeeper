@@ -7,7 +7,7 @@ const orange = (s: string) => `\x1b[38;2;217;119;87m${s}\x1b[0m`;
 function usage(): string {
   return [
     '',
-    `${orange('ClaudeKeeper')} — keep your Mac awake so Claude keeps working while you're away`,
+    `  ${orange('ClaudeKeeper')}`,
     '',
     `  Run:  ${orange('claudekeeper daemon start')}`,
     '',
