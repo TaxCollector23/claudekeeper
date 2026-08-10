@@ -47,7 +47,10 @@ program.addHelpCommand(false);
 
 const daemon = program.command('daemon');
 daemon.configureHelp({ formatHelp: () => usage() });
-daemon.command('start').action(() => daemonStart());
+daemon
+  .command('start')
+  .option('--lid', 'also work with the lid closed (may ask for your password once)')
+  .action((opts) => daemonStart({ lid: opts.lid }));
 daemon.command('stop').action(() => daemonStop());
 
 program.command('uninstall').action(() => uninstallCommand());

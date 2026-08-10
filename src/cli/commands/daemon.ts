@@ -21,7 +21,7 @@ function daemonEntry(): { command: string; args: string[] } {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export async function daemonStart() {
+export async function daemonStart(opts: { lid?: boolean } = {}) {
   const cfg = loadConfig();
   const url = `http://${cfg.host}:${cfg.port}`;
 
@@ -58,17 +58,17 @@ export async function daemonStart() {
 
   const lid = await lidCloseStatus(url);
 
-  // Preferred path: the no-admin AppliesOnLidClose assertion the daemon already
-  // holds. If this Mac honors it, we're done — close the lid, no password.
+  // The daemon already holds the no-admin AppliesOnLidClose assertion. Where macOS
+  // honors it (many versions), the lid can close with no password at all.
   if (lid === true) {
     console.log(`  ${orange('close the lid and walk away')} — Claude keeps working`);
     return;
   }
 
-  // ONLY when we positively know this macOS blocks the no-admin path do we offer
-  // the admin route. (null = unknown; never prompt on a guess.)
-  if (lid === false && process.platform === 'darwin') {
-    console.log(pc.dim('  To keep working with the lid closed too, macOS needs your password:'));
+  // Only when the user explicitly opts in (--lid) do we ask for a password — never
+  // as a surprise on a normal start.
+  if (opts.lid && lid === false && process.platform === 'darwin') {
+    console.log(pc.dim('  To also keep working with the lid closed, macOS needs your password:'));
     const r = setDisableSleepWithSudo(true);
     if (r === 'ok') {
       console.log(`  ${orange('close the lid and walk away')} — Claude keeps working`);
@@ -77,6 +77,9 @@ export async function daemonStart() {
   }
 
   console.log(`  keeping your Mac awake — it won't sleep while you're away`);
+  if (lid === false && !opts.lid) {
+    console.log(pc.dim('  (to also work with the lid closed on this Mac: claudekeeper daemon start --lid)'));
+  }
 }
 
 /** Ask the daemon whether lid-close protection is active. null = unknown. */
