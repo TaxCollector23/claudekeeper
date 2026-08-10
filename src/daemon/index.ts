@@ -48,6 +48,15 @@ async function main() {
   );
   sessions.reconcileOnStartup();
 
+  // Baseline sleep assertion held for the whole daemon lifetime: prevents *idle*
+  // system sleep whenever ClaudeKeeper is running, independent of any managed
+  // session. (Lid-close sleep is a separate, privileged mechanism — see the
+  // `daemon start` command, which sets `pmset disablesleep`.)
+  if (config.preventSleep) {
+    sleep.acquire();
+    console.log('[claudekeeper] baseline idle-sleep assertion held');
+  }
+
   const notifier = new Notifier(bus, sessionRepo, config);
   notifier.start();
 
@@ -59,9 +68,8 @@ async function main() {
   } catch (err: any) {
     if (err && err.code === 'EADDRINUSE') {
       console.error(
-        `Port ${config.port} is already in use. Another ClaudeKeeper daemon may be running ` +
-          `(try \`claudekeeper status\`), or change the port with ` +
-          `\`claudekeeper config set port ${config.port + 1}\`.`
+        `Port ${config.port} is already in use. ClaudeKeeper may already be running, ` +
+          `or edit "port" in ~/.config/claudekeeper/config.json to use a different port.`
       );
       try { fs.unlinkSync(PID_FILE); } catch { /* ignore */ }
       process.exit(1);

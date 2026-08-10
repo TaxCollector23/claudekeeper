@@ -26,13 +26,13 @@ From npm (published under a user scope; the command is still `claudekeeper`):
 
 ```bash
 npm install -g @rangan23/claudekeeper
-claudekeeper doctor
+claudekeeper daemon start
 ```
 
 Or run without installing:
 
 ```bash
-npx @rangan23/claudekeeper doctor
+npx @rangan23/claudekeeper daemon start
 ```
 
 Dev install from source:
@@ -50,49 +50,33 @@ Requires macOS and Node.js 24 or newer (ClaudeKeeper uses the built-in node:sqli
 ## Quick start
 
 ```bash
-claudekeeper doctor                  # sanity check
-claudekeeper run                     # start Claude in current dir, under the daemon
-claudekeeper status                  # daemon + sessions + power/lid
-claudekeeper sessions                # full list, all-time
-claudekeeper dashboard               # open http://localhost:7642
+claudekeeper daemon start     # start the daemon and keep the Mac awake (incl. lid closed)
 ```
 
-`claudekeeper run` streams live output. `Ctrl+C` **detaches** — the session
-keeps running inside the daemon. Reattach with `claudekeeper logs <id> -f`.
+That's it. Start the daemon, then run Claude Code however you normally do — in a
+terminal, an IDE, wherever. The daemon keeps your Mac from sleeping so Claude
+keeps working, even when you close the laptop.
 
-## Architecture
+`daemon start` prints the port it's serving on and asks for `sudo` once (to
+disable lid-close sleep — see [Keeping the lid closed](#keeping-the-lid-closed)).
+When you're done:
 
+```bash
+claudekeeper daemon stop      # stop the daemon and restore normal sleep
+claudekeeper uninstall        # stop, restore sleep, remove the launchd agent + CLI symlink
 ```
-        CLI ─┐              ┌─ Dashboard (localhost:7642)
-             ├─► Local API ─┤
-             │              │
-             ▼              ▼
-        ┌─────────────────────────┐
-        │   ClaudeKeeper Daemon   │  ◄── owns everything
-        │  claude · power · lid   │      (session state, PIDs,
-        │  sqlite · events · SSE  │       sleep assertions, logs)
-        └─────────────────────────┘
-                    │
-                 launchd
-```
-
-**The one rule:** the daemon owns Claude. The CLI and dashboard are clients.
-Never bypass the daemon. See [ARCHITECTURE.md](./ARCHITECTURE.md) for detail.
 
 ## Commands
 
-| Command                         | What it does                                                   |
-| ------------------------------- | -------------------------------------------------------------- |
-| `claudekeeper run [args...]`    | Start a Claude session in the current dir under the daemon.    |
-| `claudekeeper status`           | Daemon health, active sessions, power source, lid, assertion.  |
-| `claudekeeper sessions`         | List all sessions (any status).                                |
-| `claudekeeper logs <id> [-f]`   | Print or follow a session's log stream.                        |
-| `claudekeeper stop <id>`        | Signal a session to stop.                                      |
-| `claudekeeper resume <id>`      | Resume an interrupted session via Claude `--resume`.           |
-| `claudekeeper dashboard`        | Open the web dashboard.                                        |
-| `claudekeeper doctor`           | Diagnose Node, Claude, daemon, port, and permissions.          |
-| `claudekeeper config [get\|set]`| Read or write `~/.config/claudekeeper/config.json`.            |
-| `claudekeeper daemon {start\|stop\|restart}` | Manage the daemon directly (bypasses launchd).    |
+| Command                          | What it does                                                          |
+| -------------------------------- | -------------------------------------------------------------------- |
+| `claudekeeper daemon start`      | Start the daemon; keep the Mac awake, including with the lid closed.  |
+| `claudekeeper daemon start --no-lid` | Same, but idle-sleep prevention only — no `sudo`, no lid-close.   |
+| `claudekeeper daemon stop`       | Stop the daemon and restore normal sleep.                            |
+| `claudekeeper uninstall`         | Stop, restore sleep, and remove ClaudeKeeper.                        |
+
+A local dashboard is served at the printed URL (default `http://localhost:7642`)
+if you want to watch state; it's optional.
 
 ## Configuration
 
@@ -107,51 +91,48 @@ Never bypass the daemon. See [ARCHITECTURE.md](./ARCHITECTURE.md) for detail.
 | `logRetentionDays` | number  | `7`           | Days of session logs to keep. `0` disables purging.  |
 | `autoResume`       | boolean | `false`       | Auto-resume `interrupted` sessions at daemon start.  |
 
-## How it survives closures
+## Keeping the lid closed
 
-- **Terminal closes.** Sessions are spawned detached, with their own stdio piped
-  to per-session log files. The daemon holds the PID; the terminal is optional.
-- **Dashboard closes.** The dashboard is a client of the HTTP + SSE API. It has
-  no session state of its own. Close it, reopen it — nothing changes.
-- **Daemon restarts.** On startup the daemon reads sessions from SQLite,
-  probes each recorded PID with `kill(pid, 0)`, re-attaches to log tails for
-  live PIDs, and marks the rest `interrupted`.
+There are two distinct macOS behaviors, and ClaudeKeeper is honest about both.
 
-## Sleep behavior
+**Idle sleep** — the Mac sleeping after inactivity. Held off by a sleep
+assertion the daemon takes for its whole lifetime (via a tiny native IOKit
+helper calling `IOPMAssertionCreateWithName`, or `caffeinate -dimsu` as a
+fallback). Visible in `pmset -g assertions` as `ClaudeKeeper: active-session`.
+No privileges required.
 
-ClaudeKeeper reference-counts sleep assertions: acquires one when the first
-session starts working, releases it when the last one ends. The dashboard
-surfaces the assertion state so you can see the reality rather than a claim.
+**Lid-close sleep** — closing a MacBook's lid forces sleep, and **no ordinary
+sleep assertion overrides that**. `caffeinate` does not help here; neither does
+any IOKit idle assertion. The one reliable mechanism is:
 
-Two backends:
+```bash
+sudo pmset -a disablesleep 1
+```
 
-- **`caffeinate -dimsu`** (default). Ships with macOS. Prevents idle sleep,
-  display sleep, disk sleep, and system sleep on AC. Does **not** guarantee
-  operation with the lid closed on unsupported hardware.
-- **Native IOKit helper** (`native/ClaudeKeeperPower`, when built). A tiny
-  Swift binary that calls `IOPMAssertionCreateWithName`. Same intent, one
-  fewer subprocess, and easier to attribute in `pmset -g assertions`.
+`claudekeeper daemon start` runs exactly this for you (hence the one `sudo`
+prompt). With it set, the Mac stays fully awake with the lid shut — screen off,
+CPU and your Claude process still running. `daemon stop` and `uninstall` restore
+it (`disablesleep 0`); it also resets on reboot, so the safe default returns on
+its own. Use `--no-lid` to skip this entirely (idle-sleep prevention only).
 
-Lid state is polled from `ioreg AppleClamshellState` and reported separately.
-If your Mac cannot run with the lid closed, closing it will still sleep. We
-show you the truth instead of pretending.
+> ⚠ **Thermals and battery.** A closed Mac that never sleeps generates heat with
+> the lid shut. Run on AC power, and don't leave it running full-tilt in a
+> closed bag. This is the real tradeoff for keeping Claude working lid-closed —
+> we'd rather tell you than pretend it's free.
 
 ## Troubleshooting
 
-- **Port 7642 already in use.** `lsof -iTCP:7642 -sTCP:LISTEN`. Kill the
-  offender, or set `port` in `~/.config/claudekeeper/config.json` and restart
-  the daemon.
-- **Claude Code not found.** `claudekeeper doctor` prints where it looked.
-  Install Claude Code, or add its dir to your login shell `PATH` (launchd
-  inherits from `launchctl setenv`, not from `.zshrc`).
+- **Port already in use.** `lsof -iTCP:7642 -sTCP:LISTEN`. ClaudeKeeper is
+  probably already running; otherwise set `port` in
+  `~/.config/claudekeeper/config.json` and start again.
+- **The sudo prompt.** `daemon start` asks for `sudo` once, only to run
+  `pmset -a disablesleep 1` (keep running lid-closed). Decline it and the daemon
+  still prevents idle sleep; use `--no-lid` to skip the prompt entirely.
+- **Mac won't sleep after I'm done.** Run `claudekeeper daemon stop` (or
+  `uninstall`) to restore `disablesleep 0`. It also resets on reboot.
 - **Daemon won't start.** Check `~/Library/Logs/ClaudeKeeper/daemon.err.log`.
   Common causes: stale PID file at `~/Library/Application Support/ClaudeKeeper/daemon.pid`,
   another daemon on the port, missing `dist/` (run `npm run build`).
-- **Sessions disappearing from the list.** They aren't — they moved to
-  `completed`, `failed`, `crashed`, `stopped`, or `interrupted`. The default
-  view filters to active. Use `claudekeeper sessions` or the dashboard's
-  "All" filter.
-- **Reinstall from scratch.** `./scripts/uninstall.sh && ./scripts/install.sh`.
 
 ## Development
 

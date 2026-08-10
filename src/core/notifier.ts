@@ -4,7 +4,7 @@ import type { SessionRepository } from '../database/repositories.js';
 import type { Config } from '../shared/config.js';
 import type { KeeperEvent } from '../shared/types.js';
 import { notify } from '../macos/system.js';
-import { shortId } from '../cli/format.js';
+const shortId = (id: string) => (id.length > 12 ? id.slice(0, 12) : id);
 
 const DEBOUNCE_MS = 5000;
 const RATE_LIMIT_MS = 1000;
