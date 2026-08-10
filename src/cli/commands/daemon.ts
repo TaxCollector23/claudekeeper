@@ -6,6 +6,7 @@ import pc from 'picocolors';
 import { LOG_DIR, PID_FILE } from '../../shared/constants.js';
 import { loadConfig } from '../../shared/config.js';
 import { daemonReachable } from '../client.js';
+import { readSleepDisabled, setDisableSleepWithSudo } from '../../macos/keepawake.js';
 
 /** ClaudeKeeper accent — terracotta orange (#d97757). */
 const orange = (s: string) => `\x1b[38;2;217;119;87m${s}\x1b[0m`;
@@ -55,21 +56,29 @@ export async function daemonStart() {
 
   console.log(`${orange('●')} ClaudeKeeper running on ${orange(url)}`);
 
-  // Report whether THIS Mac lets us survive the lid closing (no admin, via the
-  // private AppliesOnLidClose assertion). macOS honors it on some versions and
-  // blocks it on others — we tell the truth rather than guess.
-  const lidClose = await lidCloseStatus(url);
-  if (lidClose === true) {
-    console.log(`  ${orange('close the lid')} — Claude keeps working (no admin needed)`);
-  } else if (lidClose === false) {
-    console.log(`  keeping your Mac awake while the lid is open`);
-    console.log(pc.dim(`  (your macOS won't allow lid-closed without admin — leave the lid open)`));
-  } else {
-    console.log(`  keeping your Mac awake — it won't sleep while you're away`);
+  // Preferred path: the no-admin AppliesOnLidClose assertion the daemon already
+  // holds. If this Mac honors it, we're done — close the lid, no password.
+  if ((await lidCloseStatus(url)) === true) {
+    console.log(`  ${orange('close the lid and walk away')} — Claude keeps working`);
+    return;
   }
+
+  // Not honored on this macOS. Not an error — just fall back to the admin route:
+  // macOS asks for the password, and closing the lid works.
+  if (process.platform === 'darwin') {
+    console.log(pc.dim('  To keep working with the lid closed, macOS needs your password:'));
+    const r = setDisableSleepWithSudo(true);
+    if (r === 'ok') {
+      console.log(`  ${orange('close the lid and walk away')} — Claude keeps working`);
+      return;
+    }
+  }
+
+  // No password given (or not macOS): still keeping the Mac awake, lid open.
+  console.log(`  keeping your Mac awake while the lid is open`);
 }
 
-/** Ask the daemon whether lid-close protection is actually active. null = unknown. */
+/** Ask the daemon whether lid-close protection is active. null = unknown. */
 async function lidCloseStatus(baseUrl: string): Promise<boolean | null> {
   try {
     const res = await fetch(`${baseUrl}/api/status`, { signal: AbortSignal.timeout(1500) });
@@ -82,6 +91,13 @@ async function lidCloseStatus(baseUrl: string): Promise<boolean | null> {
 }
 
 export async function daemonStop() {
+  // If we used the admin fallback (pmset disablesleep), restore normal sleep so
+  // the Mac isn't left permanently awake. Only prompts if it was actually set.
+  if (process.platform === 'darwin' && (await readSleepDisabled())) {
+    console.log(pc.dim('Restoring normal sleep — macOS may ask for your password:'));
+    setDisableSleepWithSudo(false);
+  }
+
   if (!fs.existsSync(PID_FILE)) {
     console.log(pc.dim('ClaudeKeeper is not running'));
     return;

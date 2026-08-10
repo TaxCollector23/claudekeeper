@@ -125,7 +125,7 @@ function Status({ status }: { status: SystemStatus }) {
         <Fact label="Keeping awake" value={awake ? 'Yes' : 'No'} accent={awake} />
         <Fact
           label="Close the lid"
-          value={lidCloseProtected ? 'Keeps running' : 'Will sleep (needs admin on this macOS)'}
+          value={lidCloseProtected ? 'Keeps running' : 'Sleeps when closed'}
           accent={lidCloseProtected}
         />
         <Fact label="Power" value={powerLabel(power)} />

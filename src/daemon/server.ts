@@ -11,6 +11,7 @@ import type { ClaudeAdapter } from '../core/claude-adapter.js';
 import type { SleepAssertion } from '../macos/power.js';
 import { readPowerState } from '../macos/power.js';
 import { readLidState } from '../macos/lid.js';
+import { readSleepDisabled } from '../macos/keepawake.js';
 import type { LidState, KeeperEvent, PowerState, SystemStatus } from '../shared/types.js';
 
 const StartSessionBody = z.object({
@@ -49,13 +50,19 @@ export async function buildServer(deps: ServerDeps) {
 
   let lastPower: PowerState = { source: 'unknown', batteryPercent: null, charging: false };
   let lastLid: LidState = 'unknown';
+  let lastDisableSleep = false;
   let lastBatteryLowEmit = 0;
   let lastActiveCount = 0;
   const BATTERY_LOW_THRESHOLD = 15;
   const BATTERY_LOW_DEBOUNCE_MS = 5 * 60 * 1000;
 
   const refreshSystem = async () => {
-    const [power, lid] = await Promise.all([readPowerState(), readLidState()]);
+    const [power, lid, disableSleep] = await Promise.all([
+      readPowerState(),
+      readLidState(),
+      readSleepDisabled(),
+    ]);
+    lastDisableSleep = disableSleep;
     if (JSON.stringify(power) !== JSON.stringify(lastPower)) {
       lastPower = power;
       deps.bus.emit({ type: 'power.changed', state: power });
@@ -100,7 +107,7 @@ export async function buildServer(deps: ServerDeps) {
       power: lastPower,
       lid: lastLid,
       sleepAssertionActive: deps.sleep.active,
-      lidCloseProtected: deps.sleep.lidCloseProtected,
+      lidCloseProtected: deps.sleep.lidCloseProtected || lastDisableSleep,
       activeSessionCount: deps.sessions.activeCount(),
     };
   });

@@ -9,9 +9,7 @@ function usage(): string {
     '',
     `${orange('ClaudeKeeper')} — keep your Mac awake so Claude keeps working while you're away`,
     '',
-    `  ${orange('claudekeeper daemon start')}    keep your Mac awake`,
-    `  ${orange('claudekeeper daemon stop')}     let it sleep again`,
-    `  ${orange('claudekeeper uninstall')}       remove ClaudeKeeper`,
+    `  Run:  ${orange('claudekeeper daemon start')}`,
     '',
   ].join('\n');
 }
