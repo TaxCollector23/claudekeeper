@@ -6,3 +6,4 @@ native/build
 *.log
 .DS_Store
 .npmrc
+logo:favicon.svg
