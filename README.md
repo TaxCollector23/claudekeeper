@@ -96,13 +96,20 @@ as a fallback. That stops your Mac from sleeping while you're away from the
 keyboard, so Claude Code keeps running. It's visible in `pmset -g assertions`
 and needs **no admin, no password, nothing** — it just works.
 
-**Honest limit — the closed lid.** ClaudeKeeper keeps your Mac awake while the
-lid is **open**. Closing a MacBook's lid forces sleep at the hardware level, and
-*no app can override that without administrator privileges* (`sudo pmset -a
-disablesleep 1`) — that's a macOS restriction, not something any tool can code
-around. If you have admin and want the lid-closed case, run that command
-yourself; or use an external display + power (clamshell), which needs no admin.
-Otherwise: leave the lid open, and Claude keeps working.
+**The closed lid.** ClaudeKeeper also tries to keep working with the lid
+*physically closed*, with **no admin** — using the same private trick as
+[Fermata](https://github.com/iccir/Fermata) / StillOn: it tags its power
+assertion with the undocumented `AppliesOnLidClose` property so it survives the
+lid closing. Apple honors this on some macOS versions and blocks it on others
+(they've been tightening it on recent Apple Silicon builds). So ClaudeKeeper
+**checks whether your Mac accepted it and tells you the truth** — the dashboard
+shows *Close the lid: Keeps running* or *Will sleep*, and `daemon start` prints
+the same. If your macOS blocks it, the only remaining options are admin
+(`sudo pmset -a disablesleep 1`) or an external display (clamshell); otherwise
+leave the lid open.
+
+> ⚠ It's an unsupported private API and could break, and a closed Mac running
+> full-tilt gets hot — don't run it buried in a bag.
 
 ## Troubleshooting
 

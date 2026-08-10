@@ -54,7 +54,31 @@ export async function daemonStart() {
   }
 
   console.log(`${orange('●')} ClaudeKeeper running on ${orange(url)}`);
-  console.log(`  keeping your Mac awake — it won't sleep while you're away`);
+
+  // Report whether THIS Mac lets us survive the lid closing (no admin, via the
+  // private AppliesOnLidClose assertion). macOS honors it on some versions and
+  // blocks it on others — we tell the truth rather than guess.
+  const lidClose = await lidCloseStatus(url);
+  if (lidClose === true) {
+    console.log(`  ${orange('close the lid')} — Claude keeps working (no admin needed)`);
+  } else if (lidClose === false) {
+    console.log(`  keeping your Mac awake while the lid is open`);
+    console.log(pc.dim(`  (your macOS won't allow lid-closed without admin — leave the lid open)`));
+  } else {
+    console.log(`  keeping your Mac awake — it won't sleep while you're away`);
+  }
+}
+
+/** Ask the daemon whether lid-close protection is actually active. null = unknown. */
+async function lidCloseStatus(baseUrl: string): Promise<boolean | null> {
+  try {
+    const res = await fetch(`${baseUrl}/api/status`, { signal: AbortSignal.timeout(1500) });
+    if (!res.ok) return null;
+    const s: any = await res.json();
+    return typeof s?.lidCloseProtected === 'boolean' ? s.lidCloseProtected : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function daemonStop() {

@@ -36,15 +36,36 @@ func acquire(reason: String) {
         write("OK \(assertionID)")
         return
     }
-    let name = "ClaudeKeeper: \(reason)" as CFString
-    let type = kIOPMAssertPreventUserIdleSystemSleep as CFString
-    let level = IOPMAssertionLevel(kIOPMAssertionLevelOn)
-    let rc = IOPMAssertionCreateWithName(type, level, name, &assertionID)
+    // Private, unsupported Apple SPI (same trick Fermata/StillOn use, needs no
+    // admin): set "AppliesOnLidClose" at CREATION time so the assertion survives
+    // the lid closing. We then read the property back to know if the OS honored it
+    // (Apple restricts it on some newer builds).
+    let props: [String: Any] = [
+        kIOPMAssertionTypeKey as String: kIOPMAssertPreventUserIdleSystemSleep as String,
+        kIOPMAssertionNameKey as String: "ClaudeKeeper: \(reason)",
+        kIOPMAssertionLevelKey as String: kIOPMAssertionLevelOn,
+        "AppliesOnLidClose": kCFBooleanTrue as Any,
+    ]
+    var rc = IOPMAssertionCreateWithProperties(props as CFDictionary, &assertionID)
+    if rc != kIOReturnSuccess {
+        // Fall back to the plain assertion (idle-sleep only) so we still do something.
+        let type = kIOPMAssertPreventUserIdleSystemSleep as CFString
+        rc = IOPMAssertionCreateWithName(type, IOPMAssertionLevel(kIOPMAssertionLevelOn),
+                                         "ClaudeKeeper: \(reason)" as CFString, &assertionID)
+    }
     if rc == kIOReturnSuccess {
         held = true
-        write("OK \(assertionID)")
+        // Also try SetProperty (belt and suspenders) and then verify.
+        _ = IOPMAssertionSetProperty(assertionID, "AppliesOnLidClose" as CFString, kCFBooleanTrue)
+        var lidOK = false
+        if let copied = IOPMAssertionCopyProperties(assertionID)?.takeRetainedValue()
+            as? [String: Any] {
+            if let v = copied["AppliesOnLidClose"] as? Bool { lidOK = v }
+            else if let n = copied["AppliesOnLidClose"] as? Int { lidOK = n != 0 }
+        }
+        write("OK \(assertionID) lidclose=\(lidOK ? 1 : 0)")
     } else {
-        write("ERR IOPMAssertionCreateWithName failed rc=\(rc)")
+        write("ERR IOPMAssertionCreate failed rc=\(rc)")
     }
 }
 

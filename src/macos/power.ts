@@ -38,6 +38,8 @@ interface Backend {
   release(): void;
   dispose(): void;
   active(): boolean;
+  /** True only if the assertion is confirmed to survive the lid closing. */
+  lidClose(): boolean;
 }
 
 /**
@@ -74,6 +76,8 @@ class NativeSleepBackend implements Backend {
   private child: ChildProcess | null = null;
   private held = false;
   private buffer = '';
+  /** Whether the OS honored AppliesOnLidClose on the current assertion. */
+  private lidCloseApplied = false;
 
   constructor(private readonly binaryPath: string) {}
 
@@ -85,9 +89,11 @@ class NativeSleepBackend implements Backend {
       const c = spawn(this.binaryPath, [], { stdio: ['pipe', 'pipe', 'pipe'] });
       c.stdout?.setEncoding('utf8');
       c.stdout?.on('data', (chunk: string) => {
-        // We do not currently gate acquire/release on responses (the API is
-        // synchronous), but drain the pipe so the helper does not block.
+        // Drain the pipe and note whether the helper confirmed lid-close support
+        // (it reports `lidclose=1` when the OS honored AppliesOnLidClose).
         this.buffer += chunk;
+        const m = this.buffer.match(/lidclose=([01])/);
+        if (m) this.lidCloseApplied = m[1] === '1';
         if (this.buffer.length > 4096) this.buffer = this.buffer.slice(-4096);
       });
       c.on('exit', () => {
@@ -150,6 +156,10 @@ class NativeSleepBackend implements Backend {
   active(): boolean {
     return this.held && this.child !== null;
   }
+
+  lidClose(): boolean {
+    return this.active() && this.lidCloseApplied;
+  }
 }
 
 /**
@@ -187,6 +197,11 @@ class CaffeinateBackend implements Backend {
   active(): boolean {
     return this.child !== null;
   }
+
+  /** caffeinate cannot survive lid close. */
+  lidClose(): boolean {
+    return false;
+  }
 }
 
 function selectBackend(): Backend {
@@ -223,6 +238,10 @@ export class SleepAssertion {
   }
   get reasons() {
     return this.refCount;
+  }
+  /** True only if the Mac will keep running with the lid physically closed. */
+  get lidCloseProtected() {
+    return this.backend.lidClose();
   }
 
   acquire(): void {

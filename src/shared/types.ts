@@ -59,6 +59,9 @@ export interface SystemStatus {
   power: PowerState;
   lid: LidState;
   sleepAssertionActive: boolean;
+  /** True only if the Mac will keep running with the lid physically closed
+   * (the private AppliesOnLidClose assertion was honored by this macOS). */
+  lidCloseProtected: boolean;
   activeSessionCount: number;
 }
 

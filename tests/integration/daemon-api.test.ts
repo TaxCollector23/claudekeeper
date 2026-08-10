@@ -70,6 +70,7 @@ class FakeClaudeAdapter implements ClaudeAdapter {
 class FakeSleep {
   active = false;
   reasons = 0;
+  lidCloseProtected = false;
   acquire() {}
   release() {}
   releaseAll() {}

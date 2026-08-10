@@ -100,6 +100,7 @@ export async function buildServer(deps: ServerDeps) {
       power: lastPower,
       lid: lastLid,
       sleepAssertionActive: deps.sleep.active,
+      lidCloseProtected: deps.sleep.lidCloseProtected,
       activeSessionCount: deps.sessions.activeCount(),
     };
   });

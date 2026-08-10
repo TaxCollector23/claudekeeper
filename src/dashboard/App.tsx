@@ -96,7 +96,7 @@ function Down() {
 
 function Status({ status }: { status: SystemStatus }) {
   const now = useTicker(true, 1000);
-  const { daemon, sleepAssertionActive, power, lid, claudeInstalled } = status;
+  const { daemon, sleepAssertionActive, lidCloseProtected, power, lid, claudeInstalled } = status;
   const address = `http://localhost:${daemon.port}`;
   const uptime = humanUptime(daemon.startedAt, now);
   const awake = sleepAssertionActive;
@@ -123,6 +123,11 @@ function Status({ status }: { status: SystemStatus }) {
         <Fact label="Address" value={address} mono />
         <Fact label="Uptime" value={uptime} mono />
         <Fact label="Keeping awake" value={awake ? 'Yes' : 'No'} accent={awake} />
+        <Fact
+          label="Close the lid"
+          value={lidCloseProtected ? 'Keeps running' : 'Will sleep (needs admin on this macOS)'}
+          accent={lidCloseProtected}
+        />
         <Fact label="Power" value={powerLabel(power)} />
         <Fact label="Lid" value={lidLabel(lid)} />
         <Fact label="Claude Code" value={claudeInstalled ? 'Detected' : 'Not found'} />

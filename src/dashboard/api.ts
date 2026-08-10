@@ -5,6 +5,7 @@ export interface SystemStatus {
   power: { source: 'ac' | 'battery' | 'unknown'; batteryPercent: number | null; charging: boolean };
   lid: 'open' | 'closed' | 'unknown';
   sleepAssertionActive: boolean;
+  lidCloseProtected: boolean;
   activeSessionCount: number;
 }
 
