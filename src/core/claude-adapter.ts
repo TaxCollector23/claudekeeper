@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import type { ChildProcess } from 'node:child_process';
+import { SESSIONS_LOG_DIR } from '../shared/constants.js';
 
 const execFile = promisify(execFileCb);
 
@@ -18,18 +19,30 @@ export interface ClaudeStartOptions {
   cwd: string;
   args?: string[];
   env?: NodeJS.ProcessEnv;
+  /** Session id — used to derive the log file path. */
+  sessionId: string;
+}
+
+export interface ClaudeResumeOptions {
+  cwd: string;
+  claudeSessionId: string;
+  args?: string[];
+  env?: NodeJS.ProcessEnv;
+  sessionId: string;
 }
 
 export interface StartedClaude {
   child: ChildProcess;
   executable: string;
   pid: number;
+  logPath: string;
 }
 
 export interface ClaudeAdapter {
   findExecutable(): Promise<string | null>;
   isInstalled(): Promise<boolean>;
   start(options: ClaudeStartOptions): Promise<StartedClaude>;
+  resume(options: ClaudeResumeOptions): Promise<StartedClaude>;
 }
 
 export class DefaultClaudeAdapter implements ClaudeAdapter {
@@ -37,7 +50,6 @@ export class DefaultClaudeAdapter implements ClaudeAdapter {
 
   async findExecutable(): Promise<string | null> {
     if (this.cached !== undefined) return this.cached;
-    // Try PATH lookup first
     try {
       const { stdout } = await execFile('which', ['claude']);
       const p = stdout.trim();
@@ -63,17 +75,43 @@ export class DefaultClaudeAdapter implements ClaudeAdapter {
   }
 
   async start(options: ClaudeStartOptions): Promise<StartedClaude> {
+    return this.spawnDetached(options.sessionId, options.cwd, options.args ?? [], options.env);
+  }
+
+  async resume(options: ClaudeResumeOptions): Promise<StartedClaude> {
+    const args = ['--resume', options.claudeSessionId, ...(options.args ?? [])];
+    return this.spawnDetached(options.sessionId, options.cwd, args, options.env);
+  }
+
+  private async spawnDetached(
+    sessionId: string,
+    cwd: string,
+    args: string[],
+    env?: NodeJS.ProcessEnv
+  ): Promise<StartedClaude> {
     const exe = await this.findExecutable();
     if (!exe) throw new Error('Claude Code executable not found. Install it or configure its path.');
-    const child = spawn(exe, options.args ?? [], {
-      cwd: options.cwd,
-      env: { ...process.env, ...options.env },
-      stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false,
-    });
-    if (!child.pid) {
-      throw new Error('Failed to spawn Claude Code');
+    fs.mkdirSync(SESSIONS_LOG_DIR, { recursive: true });
+    const logPath = path.join(SESSIONS_LOG_DIR, `${sessionId}.log`);
+    // Open a single interleaved log file for both stdout and stderr; append mode.
+    const outFd = fs.openSync(logPath, 'a');
+    const errFd = fs.openSync(logPath, 'a');
+    try {
+      const child = spawn(exe, args, {
+        cwd,
+        env: { ...process.env, ...env },
+        stdio: ['ignore', outFd, errFd],
+        detached: true,
+      });
+      if (!child.pid) {
+        throw new Error('Failed to spawn Claude Code');
+      }
+      child.unref();
+      return { child, executable: exe, pid: child.pid, logPath };
+    } finally {
+      // The child inherits the fds; close our handles to avoid leaking descriptors in the daemon.
+      try { fs.closeSync(outFd); } catch { /* ignore */ }
+      try { fs.closeSync(errFd); } catch { /* ignore */ }
     }
-    return { child, executable: exe, pid: child.pid };
   }
 }

@@ -7,6 +7,8 @@ import { stopCommand } from './commands/stop.js';
 import { doctorCommand } from './commands/doctor.js';
 import { dashboardCommand } from './commands/dashboard.js';
 import { daemonRestart, daemonStart, daemonStop } from './commands/daemon.js';
+import { resumeCommand } from './commands/resume.js';
+import { configCommand } from './commands/config.js';
 
 const program = new Command();
 program
@@ -50,6 +52,16 @@ program
   .command('stop <sessionId>')
   .description('Stop a running session')
   .action((id) => stopCommand(id));
+
+program
+  .command('resume <sessionId>')
+  .description('Resume an interrupted or completed session')
+  .action((id) => resumeCommand(id));
+
+program
+  .command('config [action] [key] [value]')
+  .description('Show or edit configuration (actions: show, get, set, path)')
+  .action((action, key, value) => configCommand(action, key, value));
 
 program.command('doctor').description('Diagnose the environment').action(() => doctorCommand());
 program.command('dashboard').description('Open the local dashboard').action(() => dashboardCommand());

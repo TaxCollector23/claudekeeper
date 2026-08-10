@@ -21,6 +21,7 @@ export interface Session {
   startedAt: string;
   endedAt: string | null;
   exitCode: number | null;
+  logPath: string | null;
   createdAt: string;
   updatedAt: string;
 }

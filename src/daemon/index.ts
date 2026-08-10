@@ -5,6 +5,8 @@ import { EventRepository, LogRepository, SessionRepository } from '../database/r
 import { EventBus } from '../core/events.js';
 import { DefaultClaudeAdapter } from '../core/claude-adapter.js';
 import { SessionManager } from '../core/session-manager.js';
+import { Notifier } from '../core/notifier.js';
+import { startLogRotation } from '../core/log-rotator.js';
 import { SleepAssertion } from '../macos/power.js';
 import { loadConfig, ensureDirs } from '../shared/config.js';
 import { DATA_DIR, LOG_DIR, PID_FILE } from '../shared/constants.js';
@@ -46,18 +48,21 @@ async function main() {
   );
   sessions.reconcileOnStartup();
 
+  const notifier = new Notifier(bus, sessionRepo, config);
+  notifier.start();
+
   const startedAt = new Date().toISOString();
   const app = await buildServer({ sessions, bus, claude, sleep, startedAt, port: config.port });
 
   await app.listen({ host: config.host, port: config.port });
   console.log(`[claudekeeper] daemon listening on http://${config.host}:${config.port}`);
 
-  // Log rotation on startup
-  const purged = logRepo.purgeOlderThan(config.logRetentionDays);
-  if (purged) console.log(`[claudekeeper] purged ${purged} old log lines`);
+  const stopLogRotation = startLogRotation(logRepo, config);
 
   const shutdown = async (signal: string) => {
     console.log(`[claudekeeper] received ${signal}, shutting down`);
+    stopLogRotation();
+    notifier.stop();
     sleep.releaseAll();
     try {
       await app.close();

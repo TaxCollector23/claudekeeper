@@ -15,6 +15,7 @@ function rowToSession(r: any): Session {
     startedAt: r.started_at,
     endedAt: r.ended_at,
     exitCode: r.exit_code,
+    logPath: r.log_path ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -29,12 +30,13 @@ export class SessionRepository {
     status: SessionStatus;
     pid?: number | null;
     claudeSessionId?: string | null;
+    logPath?: string | null;
   }): Session {
     const now = nowIso();
     this.db
       .prepare(
-        `INSERT INTO sessions (id, project_path, claude_session_id, pid, status, started_at, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO sessions (id, project_path, claude_session_id, pid, status, started_at, created_at, updated_at, log_path)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.id,
@@ -44,7 +46,8 @@ export class SessionRepository {
         input.status,
         now,
         now,
-        now
+        now,
+        input.logPath ?? null
       );
     return this.get(input.id)!;
   }
@@ -69,7 +72,7 @@ export class SessionRepository {
 
   update(
     id: string,
-    patch: Partial<Pick<Session, 'status' | 'pid' | 'endedAt' | 'exitCode' | 'claudeSessionId'>>
+    patch: Partial<Pick<Session, 'status' | 'pid' | 'endedAt' | 'exitCode' | 'claudeSessionId' | 'logPath'>>
   ): void {
     const fields: string[] = [];
     const params: any[] = [];
@@ -92,6 +95,10 @@ export class SessionRepository {
     if (patch.claudeSessionId !== undefined) {
       fields.push('claude_session_id = ?');
       params.push(patch.claudeSessionId);
+    }
+    if (patch.logPath !== undefined) {
+      fields.push('log_path = ?');
+      params.push(patch.logPath);
     }
     if (!fields.length) return;
     fields.push('updated_at = ?');

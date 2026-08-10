@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { DATA_DIR, DB_FILE } from '../shared/constants.js';
+import { DATA_DIR, DB_FILE, SESSIONS_LOG_DIR } from '../shared/constants.js';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS sessions (
@@ -46,9 +46,20 @@ export type DB = DatabaseSync;
 export function openDatabase(): DB {
   fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
   fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.mkdirSync(SESSIONS_LOG_DIR, { recursive: true });
   const db = new DatabaseSync(DB_FILE);
   db.exec(`PRAGMA journal_mode = WAL;`);
   db.exec(`PRAGMA foreign_keys = ON;`);
   db.exec(SCHEMA);
+  applyMigrations(db);
   return db;
+}
+
+/** Idempotent additive migrations for columns added after v1. */
+function applyMigrations(db: DB): void {
+  const cols = db.prepare(`PRAGMA table_info(sessions)`).all() as any[];
+  const has = (name: string) => cols.some((c) => c.name === name);
+  if (!has('log_path')) {
+    db.exec(`ALTER TABLE sessions ADD COLUMN log_path TEXT`);
+  }
 }

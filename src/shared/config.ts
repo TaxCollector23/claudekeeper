@@ -3,7 +3,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { CONFIG_DIR, CONFIG_FILE, DEFAULT_HOST, DEFAULT_PORT } from './constants.js';
 
-const ConfigSchema = z.object({
+export const ConfigSchema = z.object({
   port: z.number().int().min(1).max(65535).default(DEFAULT_PORT),
   host: z.string().default(DEFAULT_HOST),
   preventSleep: z.boolean().default(true),

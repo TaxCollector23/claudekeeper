@@ -31,6 +31,22 @@ export async function buildServer(deps: ServerDeps) {
   const app = Fastify({ logger: false });
   await app.register(cors, { origin: true });
 
+  // Tolerate empty bodies and any content-type — parameterless POSTs are common
+  // in this API (stop, resume) and Node's fetch sends Content-Length: 0 without
+  // a Content-Type header, which Fastify's default JSON parser rejects.
+  app.removeAllContentTypeParsers();
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body: any, done) => {
+    const s = typeof body === 'string' ? body.trim() : '';
+    if (s.length === 0) return done(null, {});
+    try {
+      done(null, JSON.parse(s));
+    } catch (err: any) {
+      err.statusCode = 400;
+      done(err, undefined);
+    }
+  });
+  app.addContentTypeParser('*', (_req, _payload, done) => done(null, {}));
+
   let lastPower: PowerState = { source: 'unknown', batteryPercent: null, charging: false };
   let lastLid: LidState = 'unknown';
 
@@ -104,6 +120,20 @@ export async function buildServer(deps: ServerDeps) {
     } catch (err: any) {
       reply.code(500);
       return { error: err?.message ?? 'failed_to_start' };
+    }
+  });
+
+  app.post<{ Params: { id: string } }>('/api/sessions/:id/resume', async (req, reply) => {
+    try {
+      const s = await deps.sessions.resumeSession(req.params.id);
+      if (!s) {
+        reply.code(404);
+        return { error: 'not_found' };
+      }
+      return s;
+    } catch (err: any) {
+      reply.code(500);
+      return { error: err?.message ?? 'failed_to_resume' };
     }
   });
 

@@ -5,9 +5,14 @@ const cfg = loadConfig();
 export const BASE_URL = `http://${cfg.host}:${cfg.port}`;
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const bodyStr = typeof init?.body === 'string' ? init.body : undefined;
+  const hasBody = bodyStr !== undefined && bodyStr.length > 0;
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: {
+      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+      ...(init?.headers ?? {}),
+    },
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -33,7 +38,17 @@ export const api = {
   startSession: (projectPath: string, args?: string[]) =>
     req<Session>('/api/sessions', { method: 'POST', body: JSON.stringify({ projectPath, args }) }),
   stopSession: (id: string) =>
-    req<{ ok: true }>(`/api/sessions/${id}/stop`, { method: 'POST' }),
+    req<{ ok: true }>(`/api/sessions/${id}/stop`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  resumeSession: (id: string) =>
+    req<Session>(`/api/sessions/${id}/resume`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+      headers: { 'Content-Type': 'application/json' },
+    }),
 };
 
 export function streamEvents(onEvent: (data: any) => void): () => void {
