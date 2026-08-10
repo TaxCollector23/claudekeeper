@@ -1,9 +1,25 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { daemonStart, daemonStop } from './commands/daemon.js';
 import { uninstallCommand } from './commands/uninstall.js';
 
 const orange = (s: string) => `\x1b[38;2;217;119;87m${s}\x1b[0m`;
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+
+function version(): string {
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    for (const p of ['../../package.json', '../../../package.json']) {
+      try {
+        const pkg = JSON.parse(readFileSync(path.resolve(here, p), 'utf8'));
+        if (pkg?.name?.includes('claudekeeper') && pkg.version) return pkg.version;
+      } catch { /* try next */ }
+    }
+  } catch { /* ignore */ }
+  return 'unknown';
+}
 
 function usage(): string {
   const row = (cmd: string, desc: string) =>
@@ -39,6 +55,14 @@ program.command('uninstall').action(() => uninstallCommand());
 program.action(() => {
   process.stdout.write(usage());
 });
+
+// Clean `--version` / -v / -V — just print the number, nothing else.
+const argv = process.argv.slice(2);
+const first = argv[0];
+if (argv.length === 1 && first !== undefined && ['--version', '-v', '-V', 'version'].includes(first)) {
+  process.stdout.write(`${version()}\n`);
+  process.exit(0);
+}
 
 (async () => {
   try {

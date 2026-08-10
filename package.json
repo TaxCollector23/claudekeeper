@@ -1,6 +1,6 @@
 {
   "name": "@rangan23/claudekeeper",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "description": "Keep your Mac awake so Claude Code keeps working while you're away. No admin needed.",
   "type": "module",
   "license": "MIT",
