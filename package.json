@@ -21,11 +21,14 @@
   },
   "files": [
     "dist",
+    "dist-dashboard",
     "bin",
     "launchd",
     "native/build",
+    "native/ClaudeKeeperPower",
     "scripts/install.sh",
     "scripts/uninstall.sh",
+    "scripts/build-native.sh",
     "README.md",
     "LICENSE"
   ],
@@ -64,6 +67,6 @@
     "vitest": "^2.1.9"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24.0.0"
   }
 }

@@ -1,5 +1,8 @@
 node_modules
 dist
+dist-dashboard
 src/dashboard/dist
+native/build
 *.log
 .DS_Store
+.npmrc

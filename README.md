@@ -4,7 +4,7 @@ Local supervisor for Claude Code. Keep Claude working.
 
 <!-- TODO: dashboard screenshot -->
 
-macOS. Node 20+. MIT.
+macOS. Node 24+. MIT.
 
 ---
 
@@ -22,6 +22,19 @@ lid state instead of pretending everything is fine.
 
 ## Install
 
+From npm:
+
+```bash
+npm install -g claudekeeper
+claudekeeper doctor
+```
+
+Or run without installing:
+
+```bash
+npx claudekeeper doctor
+```
+
 Dev install from source:
 
 ```bash
@@ -29,16 +42,10 @@ git clone https://github.com/claudekeeper/claudekeeper
 cd claudekeeper
 npm install
 npm run build
-./scripts/install.sh
+./scripts/install.sh   # registers the launchd agent + symlinks the CLI
 ```
 
-Eventually (not yet published):
-
-```bash
-curl -fsSL https://claudekeeper.dev/install.sh | sh
-```
-
-Requires macOS and Node.js 20 or newer.
+Requires macOS and Node.js 24 or newer (ClaudeKeeper uses the built-in node:sqlite, stable on Node 24+).
 
 ## Quick start
 

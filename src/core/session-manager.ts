@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import type { EventBus } from './events.js';
 import type { ClaudeAdapter } from './claude-adapter.js';
 import type { SessionRepository, EventRepository, LogRepository } from '../database/repositories.js';
@@ -15,6 +16,9 @@ interface RunningEntry {
   holdingSleep: boolean;
   tail: LogTailer | null;
   liveMonitor: NodeJS.Timeout | null;
+  /** Child handle when this session was started in the current daemon lifetime.
+   * Null for sessions re-attached after a daemon restart (we only have the PID). */
+  child: ChildProcess | null;
   /** True when the user has explicitly requested stop (SIGTERM sent). */
   stopRequested: boolean;
 }
@@ -80,7 +84,7 @@ export class SessionManager {
     this.repo.update(id, { pid: started.pid, logPath: started.logPath });
     session = { ...session, pid: started.pid, logPath: started.logPath };
 
-    this.attachRunning(session, started.pid, started.logPath);
+    this.attachRunning(session, started.pid, started.logPath, started.child);
 
     this.transition(session, 'working');
     this.events.append(id, 'session.started', { pid: started.pid, executable: started.executable, logPath: started.logPath });
@@ -108,7 +112,7 @@ export class SessionManager {
 
     this.repo.update(id, { pid: started.pid, logPath: started.logPath, status: 'working', endedAt: null });
     const updated = this.repo.get(id)!;
-    this.attachRunning(updated, started.pid, started.logPath);
+    this.attachRunning(updated, started.pid, started.logPath, started.child);
     this.events.append(id, 'session.resumed', { pid: started.pid });
     this.bus.emit({ type: 'session.started', sessionId: id, session: updated });
     this.bus.emit({ type: 'session.status_changed', sessionId: id, status: 'working' });
@@ -161,8 +165,13 @@ export class SessionManager {
     }
   }
 
-  /** Wire up sleep-assertion, log tailer, and PID poller for a live session. */
-  private attachRunning(session: Session, pid: number, logPath: string | null): void {
+  /** Wire up sleep-assertion, log tailer, exit handler, and PID poller. */
+  private attachRunning(
+    session: Session,
+    pid: number,
+    logPath: string | null,
+    child: ChildProcess | null = null
+  ): void {
     if (this.preventSleep) {
       this.sleep.acquire();
       this.bus.emit({ type: 'sleep_assertion.changed', active: this.sleep.active, reasons: this.sleep.reasons });
@@ -180,14 +189,25 @@ export class SessionManager {
       holdingSleep: this.preventSleep,
       tail,
       liveMonitor: null,
+      child,
       stopRequested: false,
     };
 
-    // Poll pid every 2s to detect exit — we no longer hold a child handle
-    // (spawn is detached and unref'd so Claude survives daemon crashes).
+    // Primary exit path: when we hold the child handle (session started in this
+    // daemon lifetime), the OS delivers the real exit code and signal via 'exit'
+    // even though the child is detached — detach only affects survival across a
+    // daemon crash, not our ability to observe the exit while we're alive.
+    if (child) {
+      child.on('exit', (code, signal) => this.finalize(session.id, { code, signal }));
+      child.on('error', () => this.finalize(session.id, { code: null, signal: null, errored: true }));
+    }
+
+    // Fallback exit path: for sessions re-attached after a daemon restart we have
+    // no child handle, so poll the PID. Also a belt-and-suspenders for the case
+    // where the 'exit' event is somehow missed. finalize() is idempotent.
     const timer = setInterval(() => {
       if (!this.processAlive(pid)) {
-        this.onExitDetected(session.id);
+        this.finalize(session.id);
       }
     }, PID_POLL_MS);
     timer.unref();
@@ -196,31 +216,69 @@ export class SessionManager {
     this.running.set(session.id, entry);
   }
 
-  private onExitDetected(id: string): void {
+  /**
+   * Terminal transition for a session. Idempotent: the first caller (exit handler
+   * or PID poll) claims the entry; later calls are no-ops.
+   *
+   * With exit info we report the true outcome: exit 0 → completed, non-zero →
+   * failed (exitCode recorded), killed by a non-stop signal → crashed. Without it
+   * (reconciled session detected via PID poll) we can only infer completed/stopped.
+   */
+  private finalize(
+    id: string,
+    exit?: { code: number | null; signal: NodeJS.Signals | null; errored?: boolean }
+  ): void {
     const entry = this.running.get(id);
-    if (!entry) return;
-    // Drain any last bytes from the log before tearing down.
+    if (!entry) return; // already finalized — claim guard
+    this.running.delete(id);
+
     entry.tail?.stop();
     if (entry.liveMonitor) clearInterval(entry.liveMonitor);
 
-    const currentSession = this.repo.get(id);
-    const isStopping = entry.stopRequested || currentSession?.status === 'stopped';
+    const isStopping = entry.stopRequested || this.repo.get(id)?.status === 'stopped';
 
-    // Compromise: post-detach we cannot observe the child's exit code (no wait()).
-    // We assume clean completion unless the user explicitly stopped the session.
-    // A hard crash indistinguishable from a normal exit will be reported as
-    // 'completed'; if that matters we'd need Claude to write an exit marker
-    // file, which we can't inject today.
-    const finalStatus: SessionStatus = isStopping ? 'stopped' : 'completed';
-    const nowIso = new Date().toISOString();
-    this.repo.update(id, { status: finalStatus, endedAt: nowIso, exitCode: null });
-
-    if (finalStatus === 'completed') {
-      this.events.append(id, 'session.completed', { exitCode: null, inferred: true });
-      this.bus.emit({ type: 'session.completed', sessionId: id, exitCode: 0 });
+    let finalStatus: SessionStatus;
+    let exitCode: number | null = null;
+    if (exit && !exit.errored) {
+      exitCode = exit.code;
+      const crashedBySignal =
+        exit.code === null &&
+        exit.signal != null &&
+        exit.signal !== 'SIGTERM' &&
+        exit.signal !== 'SIGINT';
+      if (isStopping) finalStatus = 'stopped';
+      else if (crashedBySignal) finalStatus = 'crashed';
+      else if (exit.code === 0 || exit.code === null) finalStatus = 'completed';
+      else finalStatus = 'failed';
+    } else if (exit?.errored) {
+      finalStatus = isStopping ? 'stopped' : 'crashed';
     } else {
-      this.events.append(id, 'session.stopped', {});
-      this.bus.emit({ type: 'session.stopped', sessionId: id });
+      // No exit info: reconciled session whose PID vanished. Best-effort inference.
+      finalStatus = isStopping ? 'stopped' : 'completed';
+    }
+
+    const nowIso = new Date().toISOString();
+    this.repo.update(id, { status: finalStatus, endedAt: nowIso, exitCode });
+
+    switch (finalStatus) {
+      case 'completed':
+        this.events.append(id, 'session.completed', { exitCode, inferred: !exit });
+        this.bus.emit({ type: 'session.completed', sessionId: id, exitCode: exitCode ?? 0 });
+        break;
+      case 'failed':
+        this.events.append(id, 'session.failed', { exitCode });
+        this.bus.emit({ type: 'session.failed', sessionId: id, exitCode });
+        break;
+      case 'crashed':
+        this.events.append(id, 'session.crashed', { signal: exit?.signal ?? null });
+        this.bus.emit({ type: 'session.crashed', sessionId: id, error: exit?.signal ?? undefined });
+        break;
+      case 'stopped':
+        this.events.append(id, 'session.stopped', {});
+        this.bus.emit({ type: 'session.stopped', sessionId: id });
+        break;
+      default:
+        break;
     }
     this.bus.emit({ type: 'session.status_changed', sessionId: id, status: finalStatus });
 
@@ -228,7 +286,6 @@ export class SessionManager {
       this.sleep.release();
       this.bus.emit({ type: 'sleep_assertion.changed', active: this.sleep.active, reasons: this.sleep.reasons });
     }
-    this.running.delete(id);
   }
 
   private processAlive(pid: number): boolean {
@@ -341,8 +398,6 @@ class LogTailer {
   stop(): void {
     if (this.stopped) return;
     this.stopped = true;
-    // One last drain so we don't lose trailing output.
-    void this.drain();
     if (this.watcher) {
       try { this.watcher.close(); } catch { /* ignore */ }
       this.watcher = null;
@@ -350,6 +405,31 @@ class LogTailer {
     if (this.poll) {
       clearInterval(this.poll);
       this.poll = null;
+    }
+    // Synchronous final drain: a process that writes then exits immediately would
+    // otherwise race the async poll/watch and lose its trailing output. finalize()
+    // is synchronous, so we must capture the tail synchronously here.
+    this.drainSync();
+  }
+
+  /** Read all bytes past the current offset synchronously. Best-effort. */
+  private drainSync(): void {
+    try {
+      const st = fs.statSync(this.path);
+      if (st.size < this.offset) this.offset = 0; // truncated/rotated
+      if (st.size <= this.offset) return;
+      const length = st.size - this.offset;
+      const fd = fs.openSync(this.path, 'r');
+      try {
+        const buf = Buffer.alloc(length);
+        fs.readSync(fd, buf, 0, length, this.offset);
+        this.offset = st.size;
+        this.onChunk(buf.toString('utf8'));
+      } finally {
+        fs.closeSync(fd);
+      }
+    } catch {
+      /* best-effort */
     }
   }
 

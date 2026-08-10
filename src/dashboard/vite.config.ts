@@ -12,7 +12,9 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: path.resolve(__dirname, 'dist'),
+    // Emit to repo-root/dist-dashboard — the daemon's first lookup path, and a
+    // location included in the published package's `files` (unlike src/**).
+    outDir: path.resolve(__dirname, '../../dist-dashboard'),
     emptyOutDir: true,
   },
 });

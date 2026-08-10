@@ -12,7 +12,7 @@ Changes that blur this boundary will get pushback.
 
 ## Dev setup
 
-Requires macOS and Node.js 20+.
+Requires macOS and Node.js 24+.
 
 ```bash
 git clone https://github.com/claudekeeper/claudekeeper
@@ -53,7 +53,7 @@ The existing suite mocks native calls (`pmset`, `ioreg`, `caffeinate`,
    direction before you write code.
 2. Branch from `main`. Keep commits small and messages descriptive.
 3. `npm run typecheck && npm run test && npm run build` must pass. CI runs
-   the same on macOS and Ubuntu across Node 20 and 22.
+   the same on macOS and Ubuntu on Node 24.
 4. Update `CHANGELOG.md` under `[Unreleased]`.
 5. Open the PR. Explain the why more than the what — the diff shows the what.
 
