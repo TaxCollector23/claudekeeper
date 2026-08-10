@@ -2,33 +2,60 @@ import { Command } from 'commander';
 import { daemonStart, daemonStop } from './commands/daemon.js';
 import { uninstallCommand } from './commands/uninstall.js';
 
+const orange = (s: string) => `\x1b[38;2;217;119;87m${s}\x1b[0m`;
+const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
+
+function usage(): string {
+  return [
+    '',
+    `${orange('ClaudeKeeper')} — keep Claude working while you're away from your Mac`,
+    '',
+    `  ${orange('claudekeeper daemon start')}    keep your Mac awake`,
+    `  ${orange('claudekeeper daemon stop')}     stop and let it sleep again`,
+    `  ${orange('claudekeeper uninstall')}       remove ClaudeKeeper`,
+    '',
+    dim('  add --lid to daemon start to also keep working with the lid closed'),
+    '',
+  ].join('\n');
+}
+
 const program = new Command();
 program
   .name('claudekeeper')
-  .description(
-    'Keep Claude working. Prevents your Mac from sleeping — including when the lid is closed — so Claude Code keeps running.'
-  )
-  .version('0.4.0');
+  .helpOption(false) // no -h/--help noise; bare `claudekeeper` prints the commands
+  .configureHelp({ formatHelp: () => usage() })
+  .configureOutput({ writeErr: () => {} }) // suppress commander's own error text
+  .exitOverride(); // throw instead of exiting, so we can print the clean list
 
-const daemon = program.command('daemon').description('Manage the ClaudeKeeper daemon');
+program.addHelpCommand(false);
+
+const daemon = program.command('daemon');
+daemon.configureHelp({ formatHelp: () => usage() });
 
 daemon
   .command('start')
-  .description('Start the daemon and keep your Mac awake (no admin needed)')
-  .option('--lid', 'also stay awake with the lid closed (needs admin once)')
+  .option('--lid', 'also keep working with the lid closed (approve the macOS admin prompt)')
   .action((opts) => daemonStart({ lid: opts.lid }));
 
-daemon
-  .command('stop')
-  .description('Stop the daemon and restore normal sleep')
-  .action(() => daemonStop());
+daemon.command('stop').action(() => daemonStop());
 
-program
-  .command('uninstall')
-  .description('Stop the daemon, restore sleep, and remove ClaudeKeeper')
-  .action(() => uninstallCommand());
+program.command('uninstall').action(() => uninstallCommand());
 
-program.parseAsync(process.argv).catch((err) => {
-  console.error(err?.message ?? err);
-  process.exit(1);
+// Bare `claudekeeper` (or unknown input) → print the clean command list.
+program.action(() => {
+  process.stdout.write(usage());
 });
+
+(async () => {
+  try {
+    await program.parseAsync(process.argv);
+  } catch (err: any) {
+    // Unknown command / bad usage → show the clean list instead of a stack trace.
+    if (err?.code && String(err.code).startsWith('commander.')) {
+      process.stdout.write(usage());
+      process.exit(0);
+    }
+    console.error(err?.message ?? err);
+    process.exit(1);
+  }
+})();

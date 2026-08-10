@@ -6,15 +6,16 @@ const execFile = promisify(execFileCb);
 /**
  * macOS lid-close survival.
  *
- * The IOKit / `caffeinate` sleep assertions used elsewhere only prevent *idle*
- * sleep — closing the lid still forces the machine to sleep. The one reliable
- * way to keep a MacBook fully running with the lid shut (screen off, CPU and
- * your Claude process still active) is `pmset -a disablesleep 1`, which needs
- * root. We shell out to `sudo` so the password prompt goes to the user in their
- * own terminal; ClaudeKeeper never sees or handles the password.
+ * Idle-sleep prevention needs no privileges (handled elsewhere). Keeping a
+ * MacBook fully awake with the lid *closed* on the built-in display is different:
+ * macOS forces sleep on lid close and only `pmset -a disablesleep 1` overrides it,
+ * which requires administrator authorization. No userspace API can bypass this.
  *
- * `disablesleep` is a runtime setting: it does not persist across reboots, so
- * the safe default is automatically restored if the machine restarts.
+ * We authorize via the native macOS admin dialog (`osascript … with administrator
+ * privileges`) rather than terminal `sudo`, so an admin user can approve it with
+ * the standard password prompt. ClaudeKeeper never sees the password. It's a
+ * runtime setting (does not persist across reboots), so the safe default returns
+ * on its own.
  */
 
 /** Read whether all-source sleep is currently disabled (no privileges needed). */
@@ -30,14 +31,18 @@ export async function readSleepDisabled(): Promise<boolean> {
 }
 
 /**
- * Enable (on=true) or restore (on=false) lid-close stay-awake via
- * `sudo pmset -a disablesleep <0|1>`. Interactive: sudo prompts the user.
- * Returns true if the command succeeded (exit 0).
+ * Enable (on=true) or restore (on=false) lid-close stay-awake. Shows the native
+ * macOS administrator dialog. Returns true only if it was authorized and applied.
  */
 export function setLidCloseStayAwake(on: boolean): boolean {
   if (process.platform !== 'darwin') return false;
-  const res = spawnSync('sudo', ['pmset', '-a', 'disablesleep', on ? '1' : '0'], {
-    stdio: 'inherit',
-  });
+  const prompt =
+    on
+      ? 'ClaudeKeeper wants to keep your Mac awake with the lid closed'
+      : 'ClaudeKeeper wants to restore normal sleep';
+  const script =
+    `do shell script "pmset -a disablesleep ${on ? '1' : '0'}" ` +
+    `with prompt "${prompt}" with administrator privileges`;
+  const res = spawnSync('osascript', ['-e', script], { stdio: ['ignore', 'ignore', 'ignore'] });
   return res.status === 0;
 }
