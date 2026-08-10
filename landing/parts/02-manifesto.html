@@ -1,0 +1,45 @@
+<section class="manifesto" aria-labelledby="man-h">
+  <div class="wrap">
+    <div class="man">
+      <h2 class="man-lead" id="man-h">You stepped away. Your Mac took that as permission to quit.</h2>
+
+      <p class="man-p">Claude Code lives in your terminal, and your terminal lives at the
+      mercy of your Mac's power state. It is doing real work — a long refactor, a test suite,
+      an agent grinding through a plan — right up until you <b>close the lid</b>. Then macOS
+      sleeps, the process is suspended, and the session just… <b>stalls</b>. Nothing outside
+      that one window is keeping it alive.</p>
+
+      <p class="man-p">Which is a strange thing to accept from a machine that was, a second ago,
+      perfectly capable of finishing the job. The work didn't fail. It didn't error out. It got
+      <b>paused by the hardware</b> because a hinge moved a few degrees.</p>
+
+      <p class="man-em">The task was never the problem. <span class="pen">Sleep</span> was.</p>
+
+      <div class="man-beat">
+        <p class="man-p">So you reach for the usual tricks. The honest part is that most of
+        them don't survive a closed lid — they hold off the <b>idle</b> timer and nothing more:</p>
+        <ul class="becomes">
+          <li>Just <span class="strike">leave the terminal open and hope</span>.</li>
+          <li>Run <span class="strike">caffeinate in another tab</span>.</li>
+          <li>Hold <span class="strike">an idle sleep assertion</span>.</li>
+          <li>Tell yourself it's <span class="strike">probably fine in your bag</span>.</li>
+        </ul>
+        <p class="man-p">Every one of those keeps a Mac awake while the lid is up and the idle
+        clock is ticking. None of them override the clamshell switch. Close the laptop and macOS
+        sleeps anyway — assertions and all. There is exactly <b>one</b> setting that outranks
+        lid-close sleep, and it is <code class="mono">pmset&nbsp;disablesleep&nbsp;1</code>. That's
+        the whole trick. That's the part everyone skips because it needs sudo.</p>
+      </div>
+
+      <div class="man-beat">
+        <h2 class="man-lead">ClaudeKeeper does the unglamorous, correct thing.</h2>
+        <p class="man-p">It's a tiny local daemon that holds a real sleep assertion so the Mac
+        never idle-sleeps, and then — the part that actually matters — flips
+        <code class="mono">disablesleep</code> so the machine stays <b>fully awake with the lid
+        shut</b>: screen off, CPU on, your Claude process still running. It asks for sudo <b>once</b>,
+        it tells you exactly what it changed, and it puts everything back when you stop it.</p>
+        <p class="man-em">Close the lid. <span class="pen">Keep Claude working.</span></p>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClaudeKeeper — Keep Claude working</title>
+<meta name="description" content="A local macOS supervisor that keeps your Mac awake — even with the lid closed — so Claude Code keeps running when you step away.">
+<meta property="og:title" content="ClaudeKeeper — Keep Claude working">
+<meta property="og:description" content="Keep your Mac awake, even lid-closed, so Claude Code keeps running.">
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="base.css">
+</head>
+<body>
+<div class="shell">
+
+<!-- ==== 01-hero.html ==== -->
+<div class="grain" aria-hidden="true"></div>
+
+<nav class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top">ClaudeKeeper<span class="dot">.</span></a>
+    <div class="nav-right">
+      <span class="nav-meta">macOS · keep Claude awake</span>
+      <a class="nav-link" href="#how">How it works
+        <svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 L12 7 L20 17"/></svg>
+      </a>
+      <a class="nav-link" href="#commands">Commands
+        <svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 L12 7 L20 17"/></svg>
+      </a>
+      <a class="nav-link" href="https://github.com/TaxCollector23/claudekeeper" target="_blank" rel="noopener">GitHub
+        <svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 L12 7 L20 17"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap hero-wrap">
+    <h1 class="hero-h1">
+      Close the lid,<br>
+      <span class="strike">Claude stops.</span><br>
+      <span class="ins"><svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 L12 7 L20 17"/></svg>Claude keeps working.</span>
+    </h1>
+
+    <div class="hero-lower">
+      <div class="hero-col">
+        <p class="hero-note">
+          <svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 L12 7 L20 17"/></svg>
+          ClaudeKeeper is a <b>tiny local daemon</b> that holds your Mac awake — even with the
+          <b>lid shut</b> — so Claude Code keeps running after you step away. It holds a sleep
+          assertion, then flips <span class="mono" style="font-size:.9em">pmset disablesleep</span> so the
+          machine stays fully awake: screen off, your session still going. Honest about it: run
+          it on AC, and don't cook a closed Mac in a bag.
+        </p>
+        <p class="hero-cta" style="display:flex; align-items:center; gap:20px; flex-wrap:wrap; margin-top:26px">
+          <a class="stamp" href="#commands">Get it
+            <svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 L12 7 L20 17"/></svg>
+          </a>
+          <a class="nav-link" href="https://github.com/TaxCollector23/claudekeeper" target="_blank" rel="noopener" style="color:var(--taupe)">Read the source on GitHub
+            <svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 L12 7 L20 17"/></svg>
+          </a>
+        </p>
+      </div>
+
+      <div class="paper-stage">
+      <article class="paper" aria-label="A session status slip, marked up">
+        <div class="paper-head"><span>Session · lid closed</span><span>Awake</span></div>
+        <div class="paper-body">
+          <p class="rule">The state the machine reports, corrected to the state it's actually in.</p>
+          <p>Power:
+          <span class="strike">asleep</span>&nbsp;
+          <span class="ins"><svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 L12 7 L20 17"/></svg>awake</span></p>
+          <p>Claude Code:
+          <span class="strike">paused</span>&nbsp;
+          <span class="ins"><svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 L12 7 L20 17"/></svg>running</span></p>
+          <div class="fakes">
+            <span class="strike">assertion: idle only</span>
+            <span class="ins"><svg class="caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17 L12 7 L20 17"/></svg>disablesleep: on</span>
+          </div>
+        </div>
+      </article>
+      </div>
+    </div>
+  </div>
+</header>
+
+
+<!-- ==== 02-manifesto.html ==== -->
+<section class="manifesto" aria-labelledby="man-h">
+  <div class="wrap">
+    <div class="man">
+      <h2 class="man-lead" id="man-h">You stepped away. Your Mac took that as permission to quit.</h2>
+
+      <p class="man-p">Claude Code lives in your terminal, and your terminal lives at the
+      mercy of your Mac's power state. It is doing real work — a long refactor, a test suite,
+      an agent grinding through a plan — right up until you <b>close the lid</b>. Then macOS
+      sleeps, the process is suspended, and the session just… <b>stalls</b>. Nothing outside
+      that one window is keeping it alive.</p>
+
+      <p class="man-p">Which is a strange thing to accept from a machine that was, a second ago,
+      perfectly capable of finishing the job. The work didn't fail. It didn't error out. It got
+      <b>paused by the hardware</b> because a hinge moved a few degrees.</p>
+
+      <p class="man-em">The task was never the problem. <span class="pen">Sleep</span> was.</p>
+
+      <div class="man-beat">
+        <p class="man-p">So you reach for the usual tricks. The honest part is that most of
+        them don't survive a closed lid — they hold off the <b>idle</b> timer and nothing more:</p>
+        <ul class="becomes">
+          <li>Just <span class="strike">leave the terminal open and hope</span>.</li>
+          <li>Run <span class="strike">caffeinate in another tab</span>.</li>
+          <li>Hold <span class="strike">an idle sleep assertion</span>.</li>
+          <li>Tell yourself it's <span class="strike">probably fine in your bag</span>.</li>
+        </ul>
+        <p class="man-p">Every one of those keeps a Mac awake while the lid is up and the idle
+        clock is ticking. None of them override the clamshell switch. Close the laptop and macOS
+        sleeps anyway — assertions and all. There is exactly <b>one</b> setting that outranks
+        lid-close sleep, and it is <code class="mono">pmset&nbsp;disablesleep&nbsp;1</code>. That's
+        the whole trick. That's the part everyone skips because it needs sudo.</p>
+      </div>
+
+      <div class="man-beat">
+        <h2 class="man-lead">ClaudeKeeper does the unglamorous, correct thing.</h2>
+        <p class="man-p">It's a tiny local daemon that holds a real sleep assertion so the Mac
+        never idle-sleeps, and then — the part that actually matters — flips
+        <code class="mono">disablesleep</code> so the machine stays <b>fully awake with the lid
+        shut</b>: screen off, CPU on, your Claude process still running. It asks for sudo <b>once</b>,
+        it tells you exactly what it changed, and it puts everything back when you stop it.</p>
+        <p class="man-em">Close the lid. <span class="pen">Keep Claude working.</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ==== 03-howitworks.html ==== -->
+<style>
+  /* HOW IT WORKS — three honest steps. Additive only; tokens only. */
+  #how .how-head{max-width:24ch}
+  #how .how-sub{color:var(--taupe); margin-top:14px; max-width:56ch;
+    font-size:clamp(15px,1.15vw,17px); line-height:1.62}
+  #how .steps{
+    margin-top:clamp(38px,6vh,64px);
+    display:grid; grid-template-columns:repeat(3,1fr); gap:18px;
+  }
+  #how .step{
+    position:relative; display:flex; flex-direction:column;
+    padding:26px 26px 28px; border-radius:5px;
+    background:linear-gradient(180deg, rgba(233,223,198,.045), rgba(233,223,198,.015));
+    border:1px solid rgba(233,223,198,.08);
+  }
+  #how .step-n{font-family:var(--mono); font-size:12px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--taupe-dim)}
+  #how .step-h{font-family:var(--serif); font-weight:500; color:var(--ivory);
+    font-size:clamp(20px,1.7vw,24px); line-height:1.16; letter-spacing:-.01em; margin-top:12px}
+  #how .step-p{color:var(--taupe); font-size:15px; line-height:1.6; margin-top:12px}
+  #how .step-p b{color:var(--ivory); font-weight:600}
+  #how .cmd{display:block; font-family:var(--mono); font-size:13.5px; line-height:1.5;
+    color:var(--pen-light); background:rgba(192,64,47,.08);
+    border:1px solid rgba(192,64,47,.22); border-radius:4px;
+    padding:9px 12px; margin-top:16px; word-break:break-word}
+  #how .step-swap{margin-top:16px; font-size:15px; line-height:1.5; color:var(--ivory)}
+  #how .step-swap .strike{color:var(--taupe)}
+  #how .step-swap .strike::after{top:.62em; background:var(--pen)}
+  #how .step .mk{position:absolute; right:18px; top:22px; width:.9em; height:.9em; opacity:.5}
+
+  /* the honest caveat — a marked aside, not a footnote */
+  #how .caveat{
+    margin-top:clamp(30px,4vh,44px); display:flex; gap:14px;
+    padding:20px 22px; border-radius:5px; max-width:70ch;
+    border:1px solid rgba(192,64,47,.24); background:rgba(192,64,47,.05);
+  }
+  #how .caveat .mk{flex:none; width:1.1em; height:1.1em; margin-top:.2em}
+  #how .caveat p{color:var(--taupe); font-size:14.5px; line-height:1.6}
+  #how .caveat b{color:var(--ivory); font-weight:600}
+  #how .caveat .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--pen-light); display:block; margin-bottom:5px}
+
+  @media (max-width:820px){
+    #how .steps{grid-template-columns:1fr; gap:14px}
+  }
+</style>
+
+<section class="agents" id="how" aria-labelledby="how-h">
+  <div class="wrap">
+    <h2 class="sec-lead how-head" id="how-h">How it keeps the Mac awake — the real mechanism.</h2>
+    <p class="how-sub">No magic, no kernel extension. A small local daemon and two power
+      settings, applied in the open and restored when you stop. Here is exactly what runs.</p>
+
+    <div class="steps">
+      <article class="step">
+        <svg class="caret mk" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 9 L6 3 L10 9"/></svg>
+        <span class="step-n">Step 01</span>
+        <h3 class="step-h">The daemon owns it.</h3>
+        <p class="step-p">You start it once. A tiny local daemon runs <b>independent of your
+          terminal</b> — close the shell, the daemon stays up. It prints the port it serves on
+          for an optional dashboard.</p>
+        <code class="cmd mono">$ claudekeeper daemon start<br>→ serving http://localhost:7642</code>
+      </article>
+
+      <article class="step">
+        <svg class="caret mk" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 9 L6 3 L10 9"/></svg>
+        <span class="step-n">Step 02</span>
+        <h3 class="step-h">Idle sleep — held off.</h3>
+        <p class="step-p">It holds a real sleep assertion (native IOKit, the same kind
+          <b>caffeinate</b> uses) so the Mac never idle-sleeps while it works. You can see it
+          yourself — <b>no sudo</b> for this part.</p>
+        <code class="cmd mono">$ pmset -g assertions<br>PreventUserIdleSystemSleep 1<br>&nbsp;(claudekeeper)</code>
+      </article>
+
+      <article class="step">
+        <svg class="caret mk" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 9 L6 3 L10 9"/></svg>
+        <span class="step-n">Step 03</span>
+        <h3 class="step-h">Lid close — the real fix.</h3>
+        <p class="step-p">This is the part nothing else does. It runs one command behind a
+          <b>single sudo prompt</b> — the only setting that overrides lid-close sleep. Lid shut,
+          Mac fully awake, Claude keeps running. Restored on stop or uninstall.</p>
+        <code class="cmd mono">$ sudo pmset -a disablesleep 1</code>
+        <p class="step-swap"><span class="strike">assertion: idle-only</span>&nbsp;
+          <span class="ins"><svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 9 L6 3 L10 9"/></svg>disablesleep: on</span></p>
+      </article>
+    </div>
+
+    <aside class="caveat" role="note">
+      <svg class="caret mk" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 9 L6 3 L10 9"/></svg>
+      <p><span class="lbl">The honest caveat</span>
+        An idle sleep assertion alone does <b>not</b> survive lid close — that is why Step 03
+        exists, and why it needs sudo. And a closed Mac that never sleeps makes <b>heat</b>:
+        run it on AC power, on a hard surface, and don't cook it shut in a bag. Prefer
+        idle-only and skip the sudo? Start it with <code class="mono">--no-lid</code>.</p>
+    </aside>
+  </div>
+</section>
+
+
+<!-- ==== 04-commands.html ==== -->
+<style>
+/* ------------------------------------------------------------
+   COMMANDS — the whole surface, three lines. Reuses .install
+   panel vocabulary; adds only a tidy command-list grid.
+   ------------------------------------------------------------ */
+.cmd-panel{display:block; padding:26px 26px 24px; margin-top:0}
+.cmd-install{display:flex; align-items:flex-start; justify-content:space-between;
+  gap:20px 30px; flex-wrap:wrap; padding-bottom:22px; margin-bottom:22px;
+  border-bottom:1px solid rgba(233,223,198,.1)}
+.cmd-install .install-l{flex:1 1 260px}
+.cmd-list{display:flex; flex-direction:column; gap:0}
+.cmd-row{display:grid; grid-template-columns:minmax(0,auto) 1fr; gap:8px 26px;
+  align-items:baseline; padding:16px 0; border-top:1px solid rgba(233,223,198,.07)}
+.cmd-row:first-child{border-top:0; padding-top:2px}
+.cmd-cmd{display:flex; align-items:center; gap:10px; min-width:0}
+.cmd-cmd .path{white-space:nowrap}
+.cmd-desc{color:var(--taupe); font-size:14.5px; line-height:1.5}
+.cmd-flag{margin-top:18px; padding-top:16px; border-top:1px dashed rgba(233,223,198,.1);
+  color:var(--taupe-dim); font-size:14px; line-height:1.55}
+.cmd-flag code{font-family:var(--mono); font-size:13px; color:var(--pen-light);
+  background:rgba(192,64,47,.08); border:1px solid rgba(192,64,47,.2);
+  padding:2px 7px; border-radius:4px; white-space:nowrap}
+.cmd-flag b{color:var(--ivory); font-weight:600}
+@media (max-width:620px){
+  .cmd-row{grid-template-columns:1fr; gap:7px}
+  .cmd-cmd .path{white-space:normal; word-break:break-all}
+}
+</style>
+
+<section class="agents" id="commands" aria-labelledby="commands-h">
+  <div class="wrap">
+    <h2 class="sec-lead" id="commands-h">The whole surface is three commands.</h2>
+    <p class="sec-sub">No config file, no dashboard to learn. Install it once, then start, stop, or remove it. That's the entire manual.</p>
+
+    <div class="install cmd-panel">
+      <div class="cmd-install">
+        <div class="install-l">
+          <div class="install-name">Install</div>
+          <div class="install-note">macOS &middot; Node 24+ &middot; one global package.</div>
+          <div class="pathline">
+            <code class="path">npm install -g @rangan23/claudekeeper</code>
+            <button class="copy" type="button" data-copy="npm install -g @rangan23/claudekeeper"
+              aria-label="Copy install command to clipboard">
+              <svg class="caret" viewBox="0 0 12 12" aria-hidden="true" style="width:.9em;height:.9em"><path d="M2 9 L6 3 L10 9"/></svg>
+              <span class="copy-t">Copy</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cmd-list">
+        <div class="cmd-row">
+          <div class="cmd-cmd">
+            <code class="path">claudekeeper daemon start</code>
+            <button class="copy" type="button" data-copy="claudekeeper daemon start"
+              aria-label="Copy command: claudekeeper daemon start">
+              <svg class="caret" viewBox="0 0 12 12" aria-hidden="true" style="width:.9em;height:.9em"><path d="M2 9 L6 3 L10 9"/></svg>
+              <span class="copy-t">Copy</span>
+            </button>
+          </div>
+          <p class="cmd-desc">Start the daemon and keep the Mac awake &mdash; lid closed included. Prints the port it serves on.</p>
+        </div>
+
+        <div class="cmd-row">
+          <div class="cmd-cmd">
+            <code class="path">claudekeeper daemon stop</code>
+            <button class="copy" type="button" data-copy="claudekeeper daemon stop"
+              aria-label="Copy command: claudekeeper daemon stop">
+              <svg class="caret" viewBox="0 0 12 12" aria-hidden="true" style="width:.9em;height:.9em"><path d="M2 9 L6 3 L10 9"/></svg>
+              <span class="copy-t">Copy</span>
+            </button>
+          </div>
+          <p class="cmd-desc">Stop the daemon and restore normal sleep.</p>
+        </div>
+
+        <div class="cmd-row">
+          <div class="cmd-cmd">
+            <code class="path">claudekeeper uninstall</code>
+            <button class="copy" type="button" data-copy="claudekeeper uninstall"
+              aria-label="Copy command: claudekeeper uninstall">
+              <svg class="caret" viewBox="0 0 12 12" aria-hidden="true" style="width:.9em;height:.9em"><path d="M2 9 L6 3 L10 9"/></svg>
+              <span class="copy-t">Copy</span>
+            </button>
+          </div>
+          <p class="cmd-desc">Stop, restore sleep, and remove it. No trace left behind.</p>
+        </div>
+      </div>
+
+      <p class="cmd-flag">
+        Don't want the sudo prompt? Add <code>claudekeeper daemon start --no-lid</code> for
+        <b>idle-sleep only</b> &mdash; it keeps the Mac awake while the lid is open, no password
+        required. Close the lid and it sleeps as usual.
+      </p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ==== 05-cta.html ==== -->
+<section class="cta" id="get" aria-labelledby="cta-h">
+  <div class="wrap cta-in">
+    <h2 class="cta-h" id="cta-h"><span class="strike">Don't babysit your laptop.</span><br>Keep it working.</h2>
+    <div class="cta-side">
+      <p>A tiny local daemon that holds the Mac awake so Claude Code keeps running after you walk away. Run it on AC &mdash; a closed Mac that never sleeps makes heat.</p>
+      <div class="row">
+        <a class="stamp" href="https://github.com/TaxCollector23/claudekeeper" target="_blank" rel="noopener">
+          Get ClaudeKeeper
+          <svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 9 L6 3 L10 9"/></svg>
+        </a>
+        <a class="cta-npm" href="https://www.npmjs.com/package/@rangan23/claudekeeper" target="_blank" rel="noopener" style="color:var(--taupe);text-decoration:none;border-bottom:1px solid rgba(168,157,132,.35);padding-bottom:2px;transition:color .2s,border-color .2s">View on npm</a>
+      </div>
+      <p class="cta-size" style="margin-top:18px">MIT &middot; macOS &middot; Node 24+</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ==== 06-footer.html ==== -->
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <p class="foot-say">Keep Claude <i>working</i>.</p>
+
+      <div class="foot-group">
+        <div class="foot-label">Source</div>
+        <a href="https://github.com/TaxCollector23/claudekeeper" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+          GitHub repo</a>
+        <a href="https://www.npmjs.com/package/@rangan23/claudekeeper" target="_blank" rel="noopener">npm package</a>
+        <a href="https://github.com/TaxCollector23/claudekeeper#readme" target="_blank" rel="noopener">README</a>
+        <a href="https://github.com/TaxCollector23/claudekeeper/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+
+      <div class="foot-group">
+        <div class="foot-label">Product</div>
+        <a href="#how">How it works</a>
+        <a href="#commands">Commands</a>
+        <div class="colophon">ClaudeKeeper &middot; MIT &middot; not affiliated with Anthropic</div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- copy buttons: one delegated handler for the whole page ----------
+     A copy control is any [data-copy] element (the .copy buttons carry it).
+     Its text to copy is the data-copy value; its label span is .copy-t. -------- */
+  document.addEventListener('click', function(ev){
+    var btn = ev.target.closest ? ev.target.closest('[data-copy]') : null;
+    if(!btn) return;
+    var text = btn.getAttribute('data-copy') || '';
+    var label = btn.querySelector('.copy-t');
+    var restore = label ? label.textContent : null;
+
+    var done = function(){
+      if(!label) return;
+      label.textContent = 'Copied';
+      setTimeout(function(){ label.textContent = restore; }, 1400);
+    };
+    var fallback = function(){
+      try{
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly','');
+        ta.style.position='absolute'; ta.style.left='-9999px';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+      }catch(e){}
+      done();
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else { fallback(); }
+  });
+
+  /* ---------- strikes: content is visible by default; only the red line
+     animates in. Reduced motion leaves the full line via CSS. ---------------- */
+  function drawStrikes(scope){
+    (scope || document).querySelectorAll('.strike').forEach(function(el){
+      if(el.dataset.drawn) return;
+      el.dataset.drawn = '1';
+      if(reduce) return;
+      el.classList.add('arm');           // collapse to width 0
+      void el.offsetWidth;               // force reflow
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){ el.classList.remove('arm'); });
+      });
+    });
+  }
+
+  if('IntersectionObserver' in window && !reduce){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){ drawStrikes(e.target); io.unobserve(e.target); }
+      });
+    }, {threshold:.35});
+    document.querySelectorAll('.strike').forEach(function(el){ io.observe(el); });
+  } else {
+    drawStrikes(document);
+  }
+})();
+</script>
+
+</div>
+</body>
+</html>

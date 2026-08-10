@@ -1,0 +1,97 @@
+<style>
+  /* HOW IT WORKS — three honest steps. Additive only; tokens only. */
+  #how .how-head{max-width:24ch}
+  #how .how-sub{color:var(--taupe); margin-top:14px; max-width:56ch;
+    font-size:clamp(15px,1.15vw,17px); line-height:1.62}
+  #how .steps{
+    margin-top:clamp(38px,6vh,64px);
+    display:grid; grid-template-columns:repeat(3,1fr); gap:18px;
+  }
+  #how .step{
+    position:relative; display:flex; flex-direction:column;
+    padding:26px 26px 28px; border-radius:5px;
+    background:linear-gradient(180deg, rgba(233,223,198,.045), rgba(233,223,198,.015));
+    border:1px solid rgba(233,223,198,.08);
+  }
+  #how .step-n{font-family:var(--mono); font-size:12px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--taupe-dim)}
+  #how .step-h{font-family:var(--serif); font-weight:500; color:var(--ivory);
+    font-size:clamp(20px,1.7vw,24px); line-height:1.16; letter-spacing:-.01em; margin-top:12px}
+  #how .step-p{color:var(--taupe); font-size:15px; line-height:1.6; margin-top:12px}
+  #how .step-p b{color:var(--ivory); font-weight:600}
+  #how .cmd{display:block; font-family:var(--mono); font-size:13.5px; line-height:1.5;
+    color:var(--pen-light); background:rgba(192,64,47,.08);
+    border:1px solid rgba(192,64,47,.22); border-radius:4px;
+    padding:9px 12px; margin-top:16px; word-break:break-word}
+  #how .step-swap{margin-top:16px; font-size:15px; line-height:1.5; color:var(--ivory)}
+  #how .step-swap .strike{color:var(--taupe)}
+  #how .step-swap .strike::after{top:.62em; background:var(--pen)}
+  #how .step .mk{position:absolute; right:18px; top:22px; width:.9em; height:.9em; opacity:.5}
+
+  /* the honest caveat — a marked aside, not a footnote */
+  #how .caveat{
+    margin-top:clamp(30px,4vh,44px); display:flex; gap:14px;
+    padding:20px 22px; border-radius:5px; max-width:70ch;
+    border:1px solid rgba(192,64,47,.24); background:rgba(192,64,47,.05);
+  }
+  #how .caveat .mk{flex:none; width:1.1em; height:1.1em; margin-top:.2em}
+  #how .caveat p{color:var(--taupe); font-size:14.5px; line-height:1.6}
+  #how .caveat b{color:var(--ivory); font-weight:600}
+  #how .caveat .lbl{font-family:var(--mono); font-size:11px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--pen-light); display:block; margin-bottom:5px}
+
+  @media (max-width:820px){
+    #how .steps{grid-template-columns:1fr; gap:14px}
+  }
+</style>
+
+<section class="agents" id="how" aria-labelledby="how-h">
+  <div class="wrap">
+    <h2 class="sec-lead how-head" id="how-h">How it keeps the Mac awake — the real mechanism.</h2>
+    <p class="how-sub">No magic, no kernel extension. A small local daemon and two power
+      settings, applied in the open and restored when you stop. Here is exactly what runs.</p>
+
+    <div class="steps">
+      <article class="step">
+        <svg class="caret mk" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 9 L6 3 L10 9"/></svg>
+        <span class="step-n">Step 01</span>
+        <h3 class="step-h">The daemon owns it.</h3>
+        <p class="step-p">You start it once. A tiny local daemon runs <b>independent of your
+          terminal</b> — close the shell, the daemon stays up. It prints the port it serves on
+          for an optional dashboard.</p>
+        <code class="cmd mono">$ claudekeeper daemon start<br>→ serving http://localhost:7642</code>
+      </article>
+
+      <article class="step">
+        <svg class="caret mk" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 9 L6 3 L10 9"/></svg>
+        <span class="step-n">Step 02</span>
+        <h3 class="step-h">Idle sleep — held off.</h3>
+        <p class="step-p">It holds a real sleep assertion (native IOKit, the same kind
+          <b>caffeinate</b> uses) so the Mac never idle-sleeps while it works. You can see it
+          yourself — <b>no sudo</b> for this part.</p>
+        <code class="cmd mono">$ pmset -g assertions<br>PreventUserIdleSystemSleep 1<br>&nbsp;(claudekeeper)</code>
+      </article>
+
+      <article class="step">
+        <svg class="caret mk" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 9 L6 3 L10 9"/></svg>
+        <span class="step-n">Step 03</span>
+        <h3 class="step-h">Lid close — the real fix.</h3>
+        <p class="step-p">This is the part nothing else does. It runs one command behind a
+          <b>single sudo prompt</b> — the only setting that overrides lid-close sleep. Lid shut,
+          Mac fully awake, Claude keeps running. Restored on stop or uninstall.</p>
+        <code class="cmd mono">$ sudo pmset -a disablesleep 1</code>
+        <p class="step-swap"><span class="strike">assertion: idle-only</span>&nbsp;
+          <span class="ins"><svg class="caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 9 L6 3 L10 9"/></svg>disablesleep: on</span></p>
+      </article>
+    </div>
+
+    <aside class="caveat" role="note">
+      <svg class="caret mk" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 9 L6 3 L10 9"/></svg>
+      <p><span class="lbl">The honest caveat</span>
+        An idle sleep assertion alone does <b>not</b> survive lid close — that is why Step 03
+        exists, and why it needs sudo. And a closed Mac that never sleeps makes <b>heat</b>:
+        run it on AC power, on a hard surface, and don't cook it shut in a bag. Prefer
+        idle-only and skip the sudo? Start it with <code class="mono">--no-lid</code>.</p>
+    </aside>
+  </div>
+</section>
