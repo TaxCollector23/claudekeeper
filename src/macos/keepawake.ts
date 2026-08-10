@@ -11,12 +11,12 @@ const execFile = promisify(execFileCb);
  * macOS forces sleep on lid close and only `pmset -a disablesleep 1` overrides it,
  * which requires administrator authorization. No userspace API can bypass this.
  *
- * We authorize via the native macOS admin dialog (`osascript … with administrator
- * privileges`) rather than terminal `sudo`, so an admin user can approve it with
- * the standard password prompt. ClaudeKeeper never sees the password. It's a
- * runtime setting (does not persist across reboots), so the safe default returns
- * on its own.
+ * The password prompt happens right in the terminal via `sudo` — ClaudeKeeper
+ * never sees the password. It's a runtime setting (does not persist across
+ * reboots), so the safe default returns on its own.
  */
+
+export type LidResult = 'ok' | 'denied' | 'unavailable';
 
 /** Read whether all-source sleep is currently disabled (no privileges needed). */
 export async function readSleepDisabled(): Promise<boolean> {
@@ -31,18 +31,25 @@ export async function readSleepDisabled(): Promise<boolean> {
 }
 
 /**
- * Enable (on=true) or restore (on=false) lid-close stay-awake. Shows the native
- * macOS administrator dialog. Returns true only if it was authorized and applied.
+ * Enable (on=true) or restore (on=false) lid-close stay-awake by running
+ * `sudo pmset -a disablesleep <0|1>`. The password prompt appears in the user's
+ * own terminal (stdio inherited); we never see or handle it.
+ *
+ * Returns:
+ *   'ok'          — authorized and applied
+ *   'denied'      — the user cancelled or isn't allowed to run sudo (not an admin)
+ *   'unavailable' — not macOS / sudo missing
  */
-export function setLidCloseStayAwake(on: boolean): boolean {
-  if (process.platform !== 'darwin') return false;
-  const prompt =
-    on
-      ? 'ClaudeKeeper wants to keep your Mac awake with the lid closed'
-      : 'ClaudeKeeper wants to restore normal sleep';
-  const script =
-    `do shell script "pmset -a disablesleep ${on ? '1' : '0'}" ` +
-    `with prompt "${prompt}" with administrator privileges`;
-  const res = spawnSync('osascript', ['-e', script], { stdio: ['ignore', 'ignore', 'ignore'] });
-  return res.status === 0;
+export function setLidCloseStayAwake(on: boolean): LidResult {
+  if (process.platform !== 'darwin') return 'unavailable';
+  const res = spawnSync('sudo', ['pmset', '-a', 'disablesleep', on ? '1' : '0'], {
+    stdio: 'inherit',
+  });
+  if (res.error) return 'unavailable';
+  return res.status === 0 ? 'ok' : 'denied';
+}
+
+/** Back-compat boolean helper for callers that only care about success. */
+export function setLidCloseStayAwakeBool(on: boolean): boolean {
+  return setLidCloseStayAwake(on) === 'ok';
 }

@@ -60,9 +60,18 @@ export async function daemonStart(opts: { lid?: boolean } = {}) {
 
   console.log(`${orange('●')} ClaudeKeeper running on ${orange(url)}`);
   if (enableLid) {
-    const ok = setLidCloseStayAwake(true);
-    if (ok) console.log(`  keeping your Mac awake, even with the lid closed`);
-    else console.log(`  keeping your Mac awake — lid-closed needs admin (sudo was declined)`);
+    console.log(pc.dim("  Lid-closed mode needs your password — type it below (it's asked by macOS, not us):"));
+    const r = setLidCloseStayAwake(true);
+    if (r === 'ok') {
+      console.log(`  ${orange('✓')} keeping your Mac awake, ${orange('even with the lid closed')}`);
+    } else if (r === 'denied') {
+      console.log(
+        `  ${pc.dim('lid-closed mode was declined (or your account is not an admin).')}\n` +
+          `  ${pc.dim("It's still keeping your Mac awake while the lid is open.")}`
+      );
+    } else {
+      console.log(`  keeping your Mac awake while the lid is open`);
+    }
   } else {
     console.log(`  keeping your Mac awake — it won't sleep while you're away`);
   }
