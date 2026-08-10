@@ -54,28 +54,23 @@ claudekeeper daemon start     # keep your Mac awake — no admin needed
 ```
 
 That's it. Start the daemon, then run Claude Code however you normally do — in a
-terminal, an IDE, wherever. The daemon keeps your Mac from sleeping so Claude
-keeps working while you're away from the keyboard. It prints the port it's
-serving on and needs **no admin**.
-
-To also keep running with the lid *physically closed* on the built-in display,
-add `--lid` (needs admin once — macOS requires it). With an external display +
-power you don't even need that: close the lid and it keeps running (clamshell).
-When you're done:
+terminal, an IDE, wherever. Your Mac normally sleeps a few minutes after you
+step away and kills the session; ClaudeKeeper keeps it awake so long runs keep
+going. It prints the port it's serving on and needs **no admin, ever**. When
+you're done:
 
 ```bash
-claudekeeper daemon stop      # stop the daemon and restore normal sleep
-claudekeeper uninstall        # stop, restore sleep, remove the launchd agent + CLI symlink
+claudekeeper daemon stop      # let your Mac sleep normally again
+claudekeeper uninstall        # remove the launchd agent + CLI symlink
 ```
 
 ## Commands
 
-| Command                          | What it does                                                          |
-| -------------------------------- | -------------------------------------------------------------------- |
-| `claudekeeper daemon start`      | Keep your Mac awake so Claude keeps running. No admin needed.         |
-| `claudekeeper daemon start --lid` | Also stay awake with the lid closed (needs admin once).             |
-| `claudekeeper daemon stop`       | Stop the daemon and restore normal sleep.                            |
-| `claudekeeper uninstall`         | Stop, restore sleep, and remove ClaudeKeeper.                        |
+| Command                     | What it does                                              |
+| --------------------------- | -------------------------------------------------------- |
+| `claudekeeper daemon start` | Keep your Mac awake so Claude keeps running. No admin.    |
+| `claudekeeper daemon stop`  | Let your Mac sleep normally again.                       |
+| `claudekeeper uninstall`    | Remove ClaudeKeeper.                                     |
 
 A local dashboard is served at the printed URL (default `http://localhost:7642`)
 if you want to watch state; it's optional.
@@ -93,45 +88,29 @@ if you want to watch state; it's optional.
 | `logRetentionDays` | number  | `7`           | Days of session logs to keep. `0` disables purging.  |
 | `autoResume`       | boolean | `false`       | Auto-resume `interrupted` sessions at daemon start.  |
 
-## Keeping the lid closed
+## How it keeps your Mac awake
 
-There are two distinct macOS behaviors, and ClaudeKeeper is honest about both.
+The daemon holds a system **sleep assertion** for its whole lifetime — via a
+tiny native IOKit helper (`IOPMAssertionCreateWithName`) or `caffeinate -dimsu`
+as a fallback. That stops your Mac from sleeping while you're away from the
+keyboard, so Claude Code keeps running. It's visible in `pmset -g assertions`
+and needs **no admin, no password, nothing** — it just works.
 
-**Idle sleep** — the Mac sleeping after inactivity. Held off by a sleep
-assertion the daemon takes for its whole lifetime (via a tiny native IOKit
-helper calling `IOPMAssertionCreateWithName`, or `caffeinate -dimsu` as a
-fallback). Visible in `pmset -g assertions` as `ClaudeKeeper: active-session`.
-No privileges required.
-
-**Lid-close sleep** — closing a MacBook's lid forces sleep, and **no ordinary
-sleep assertion overrides that**. `caffeinate` does not help here; neither does
-any IOKit idle assertion. The one reliable mechanism is:
-
-```bash
-sudo pmset -a disablesleep 1
-```
-
-`claudekeeper daemon start` runs exactly this for you (hence the one `sudo`
-prompt). With it set, the Mac stays fully awake with the lid shut — screen off,
-CPU and your Claude process still running. `daemon stop` and `uninstall` restore
-it (`disablesleep 0`); it also resets on reboot, so the safe default returns on
-its own. Use `--no-lid` to skip this entirely (idle-sleep prevention only).
-
-> ⚠ **Thermals and battery.** A closed Mac that never sleeps generates heat with
-> the lid shut. Run on AC power, and don't leave it running full-tilt in a
-> closed bag. This is the real tradeoff for keeping Claude working lid-closed —
-> we'd rather tell you than pretend it's free.
+**Honest limit — the closed lid.** ClaudeKeeper keeps your Mac awake while the
+lid is **open**. Closing a MacBook's lid forces sleep at the hardware level, and
+*no app can override that without administrator privileges* (`sudo pmset -a
+disablesleep 1`) — that's a macOS restriction, not something any tool can code
+around. If you have admin and want the lid-closed case, run that command
+yourself; or use an external display + power (clamshell), which needs no admin.
+Otherwise: leave the lid open, and Claude keeps working.
 
 ## Troubleshooting
 
 - **Port already in use.** `lsof -iTCP:7642 -sTCP:LISTEN`. ClaudeKeeper is
   probably already running; otherwise set `port` in
   `~/.config/claudekeeper/config.json` and start again.
-- **The sudo prompt.** `daemon start` asks for `sudo` once, only to run
-  `pmset -a disablesleep 1` (keep running lid-closed). Decline it and the daemon
-  still prevents idle sleep; use `--no-lid` to skip the prompt entirely.
-- **Mac won't sleep after I'm done.** Run `claudekeeper daemon stop` (or
-  `uninstall`) to restore `disablesleep 0`. It also resets on reboot.
+- **Is it actually working?** Open the dashboard — it shows **Keeping awake:
+  Yes**. Leave your Mac idle (lid open) and it won't sleep.
 - **Daemon won't start.** Check `~/Library/Logs/ClaudeKeeper/daemon.err.log`.
   Common causes: stale PID file at `~/Library/Application Support/ClaudeKeeper/daemon.pid`,
   another daemon on the port, missing `dist/` (run `npm run build`).

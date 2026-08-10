@@ -109,7 +109,7 @@ function Status({ status }: { status: SystemStatus }) {
         </h1>
         <p className="lede muted">
           {awake
-            ? 'Close the lid and walk away — Claude Code keeps running the whole time you’re gone.'
+            ? 'Step away and it won’t sleep — Claude Code keeps running while you’re gone.'
             : 'The daemon is up but nothing is preventing sleep at the moment.'}
         </p>
         <div className="cmd">

@@ -4,18 +4,11 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import pc from 'picocolors';
 import { LAUNCHD_LABEL, PID_FILE } from '../../shared/constants.js';
-import { readSleepDisabled, setLidCloseStayAwake } from '../../macos/keepawake.js';
 
 export async function uninstallCommand() {
   console.log(pc.bold('Uninstalling ClaudeKeeper'));
 
-  // 1. Restore normal sleep so the Mac isn't left permanently awake.
-  if (process.platform === 'darwin' && (await readSleepDisabled())) {
-    console.log(pc.dim('Restoring normal sleep (pmset disablesleep 0, needs sudo)…'));
-    setLidCloseStayAwake(false);
-  }
-
-  // 2. Stop the daemon.
+  // 1. Stop the daemon.
   if (fs.existsSync(PID_FILE)) {
     const pid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10);
     if (Number.isFinite(pid)) {

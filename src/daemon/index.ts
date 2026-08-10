@@ -50,13 +50,14 @@ async function main() {
   );
   sessions.reconcileOnStartup();
 
-  // Baseline sleep assertion held for the whole daemon lifetime: prevents *idle*
-  // system sleep whenever ClaudeKeeper is running, independent of any managed
-  // session. (Lid-close sleep is a separate, privileged mechanism — see the
-  // `daemon start` command, which sets `pmset disablesleep`.)
+  // Held for the whole daemon lifetime: keeps the Mac from sleeping while
+  // ClaudeKeeper runs, so Claude Code keeps working while you're away. Needs no
+  // admin (caffeinate -dimsu / IOKit idle assertion). macOS still forces sleep
+  // when the lid is physically closed on the built-in display — that can't be
+  // overridden without administrator privileges, so we don't pretend to.
   if (config.preventSleep) {
     sleep.acquire();
-    console.log('[claudekeeper] baseline idle-sleep assertion held');
+    console.log('[claudekeeper] keeping the Mac awake (no admin needed)');
   }
 
   const notifier = new Notifier(bus, sessionRepo, config);

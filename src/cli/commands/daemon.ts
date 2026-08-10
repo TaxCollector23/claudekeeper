@@ -6,11 +6,12 @@ import pc from 'picocolors';
 import { LOG_DIR, PID_FILE } from '../../shared/constants.js';
 import { loadConfig } from '../../shared/config.js';
 import { daemonReachable } from '../client.js';
-import { readSleepDisabled, setLidCloseStayAwake } from '../../macos/keepawake.js';
+
+/** ClaudeKeeper accent — terracotta orange (#d97757). */
+const orange = (s: string) => `\x1b[38;2;217;119;87m${s}\x1b[0m`;
 
 function daemonEntry(): { command: string; args: string[] } {
   const here = path.dirname(fileURLToPath(import.meta.url));
-  // Prefer compiled dist entry, fall back to tsx for dev.
   const compiled = path.resolve(here, '../../daemon/index.js');
   if (fs.existsSync(compiled)) return { command: process.execPath, args: [compiled] };
   const src = path.resolve(here, '../../../src/daemon/index.ts');
@@ -19,15 +20,9 @@ function daemonEntry(): { command: string; args: string[] } {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** ClaudeKeeper accent — terracotta orange (#d97757) via truecolor ANSI. */
-const orange = (s: string) => `\x1b[38;2;217;119;87m${s}\x1b[0m`;
-
-export async function daemonStart(opts: { lid?: boolean } = {}) {
+export async function daemonStart() {
   const cfg = loadConfig();
   const url = `http://${cfg.host}:${cfg.port}`;
-  // Default: no admin required. `--lid` opts into the one thing that needs sudo
-  // (keeping the Mac awake with the lid physically closed on the built-in display).
-  const enableLid = opts.lid === true;
 
   if (!(await daemonReachable())) {
     fs.mkdirSync(LOG_DIR, { recursive: true });
@@ -59,21 +54,24 @@ export async function daemonStart(opts: { lid?: boolean } = {}) {
   }
 
   console.log(`${orange('●')} ClaudeKeeper running on ${orange(url)}`);
-  if (enableLid) {
-    console.log(pc.dim("  Lid-closed mode needs your password — type it below (it's asked by macOS, not us):"));
-    const r = setLidCloseStayAwake(true);
-    if (r === 'ok') {
-      console.log(`  ${orange('✓')} keeping your Mac awake, ${orange('even with the lid closed')}`);
-    } else if (r === 'denied') {
-      console.log(
-        `  ${pc.dim('lid-closed mode was declined (or your account is not an admin).')}\n` +
-          `  ${pc.dim("It's still keeping your Mac awake while the lid is open.")}`
-      );
-    } else {
-      console.log(`  keeping your Mac awake while the lid is open`);
-    }
-  } else {
-    console.log(`  keeping your Mac awake — it won't sleep while you're away`);
+  console.log(`  keeping your Mac awake — it won't sleep while you're away`);
+}
+
+export async function daemonStop() {
+  if (!fs.existsSync(PID_FILE)) {
+    console.log(pc.dim('ClaudeKeeper is not running'));
+    return;
+  }
+  const pid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10);
+  if (!Number.isFinite(pid)) {
+    try { fs.unlinkSync(PID_FILE); } catch { /* ignore */ }
+    return;
+  }
+  try {
+    process.kill(pid, 'SIGTERM');
+    console.log(`${orange('●')} ClaudeKeeper stopped — your Mac can sleep normally again`);
+  } catch (err: any) {
+    console.error(`${pc.red('✕')} ${err.message}`);
   }
 }
 
@@ -92,29 +90,5 @@ function tailFile(p: string, bytes: number): string | null {
     }
   } catch {
     return null;
-  }
-}
-
-export async function daemonStop() {
-  // Restore normal sleep first (so the Mac isn't left permanently awake).
-  if (process.platform === 'darwin' && (await readSleepDisabled())) {
-    console.log(pc.dim('Restoring normal sleep (pmset disablesleep 0, needs sudo)…'));
-    setLidCloseStayAwake(false);
-  }
-
-  if (!fs.existsSync(PID_FILE)) {
-    console.log(pc.dim('daemon not running'));
-    return;
-  }
-  const pid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10);
-  if (!Number.isFinite(pid)) {
-    try { fs.unlinkSync(PID_FILE); } catch { /* ignore */ }
-    return;
-  }
-  try {
-    process.kill(pid, 'SIGTERM');
-    console.log(`${pc.green('✓')} daemon stopped ${pc.dim(`(pid ${pid})`)}`);
-  } catch (err: any) {
-    console.error(`${pc.red('✕')} ${err.message}`);
   }
 }

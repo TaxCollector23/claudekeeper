@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ClaudeKeeper — keep Claude awake when your Mac is closed</title>
-<meta name="description" content="ClaudeKeeper keeps your Mac awake with the lid closed, so Claude Code keeps running while you're away. Free and open source.">
+<title>ClaudeKeeper — keep Claude working while you're away</title>
+<meta name="description" content="ClaudeKeeper keeps your Mac from sleeping while you're away, so Claude Code keeps running. Free and open source. No admin needed.">
 <meta name="color-scheme" content="dark">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="favicon.png">
@@ -144,10 +144,11 @@
 <main id="top">
   <div class="wrap hero">
     <div class="hero-left">
-      <h1>Keep Claude <span class="accent">awake</span> when your Mac is closed.</h1>
+      <h1>Keep Claude working while you <span class="accent">step away</span>.</h1>
       <p class="lede">
-        Close the lid and walk away — ClaudeKeeper keeps your Mac awake so <b>Claude Code
-        keeps running</b> the whole time you're gone. Start it once and forget it.
+        Your Mac sleeps a few minutes after you leave — and takes your Claude Code
+        session with it. ClaudeKeeper keeps it awake so <b>long runs keep going</b>.
+        No admin, no fuss.
       </p>
       <div class="actions">
         <div class="cmd">
@@ -171,7 +172,7 @@
           <div class="line"><span class="prompt">$</span> <span class="typed" id="typed"></span><span class="cursor" id="cursor">&nbsp;</span></div>
           <div class="out" id="out">
             <div class="row" data-row><span class="ok">✓</span> daemon running on <span class="url">http://localhost:7642</span></div>
-            <div class="row" data-row><span class="ok">✓</span> <span class="dim">your Mac stays awake — close the lid and keep working</span></div>
+            <div class="row" data-row><span class="ok">✓</span> <span class="dim">your Mac won't sleep while you're away</span></div>
           </div>
         </div>
       </div>
@@ -185,7 +186,7 @@
       <div class="cmds">
         <div class="crow">
           <code>claudekeeper daemon start</code>
-          <span class="desc">Start it and keep your Mac awake, even with the lid closed.</span>
+          <span class="desc">Start it and keep your Mac awake while you're away.</span>
           <button class="copy" data-copy="claudekeeper daemon start" aria-label="Copy command">Copy</button>
         </div>
         <div class="crow">
