@@ -1,6 +1,6 @@
 {
   "name": "@rangan23/claudekeeper",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Keep Claude Code working — prevents your Mac from sleeping, including with the lid closed.",
   "type": "module",
   "license": "MIT",

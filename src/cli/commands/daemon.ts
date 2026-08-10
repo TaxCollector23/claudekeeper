@@ -25,7 +25,9 @@ const orange = (s: string) => `\x1b[38;2;217;119;87m${s}\x1b[0m`;
 export async function daemonStart(opts: { lid?: boolean } = {}) {
   const cfg = loadConfig();
   const url = `http://${cfg.host}:${cfg.port}`;
-  const enableLid = opts.lid !== false; // default on; `--no-lid` turns it off
+  // Default: no admin required. `--lid` opts into the one thing that needs sudo
+  // (keeping the Mac awake with the lid physically closed on the built-in display).
+  const enableLid = opts.lid === true;
 
   if (!(await daemonReachable())) {
     fs.mkdirSync(LOG_DIR, { recursive: true });
@@ -56,13 +58,14 @@ export async function daemonStart(opts: { lid?: boolean } = {}) {
     }
   }
 
-  // Lid-close: the one thing that actually keeps the Mac awake with the lid shut.
-  const lidOn = enableLid ? setLidCloseStayAwake(true) : false;
-
   console.log(`${orange('●')} ClaudeKeeper running on ${orange(url)}`);
-  if (lidOn) console.log(`  keeping your Mac awake, even with the lid closed`);
-  else if (enableLid) console.log(`  keeping your Mac awake while the lid is open`);
-  else console.log(`  keeping your Mac awake while the lid is open`);
+  if (enableLid) {
+    const ok = setLidCloseStayAwake(true);
+    if (ok) console.log(`  keeping your Mac awake, even with the lid closed`);
+    else console.log(`  keeping your Mac awake — lid-closed needs admin (sudo was declined)`);
+  } else {
+    console.log(`  keeping your Mac awake — it won't sleep while you're away`);
+  }
 }
 
 function tailFile(p: string, bytes: number): string | null {

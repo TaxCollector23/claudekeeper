@@ -8,14 +8,14 @@ program
   .description(
     'Keep Claude working. Prevents your Mac from sleeping — including when the lid is closed — so Claude Code keeps running.'
   )
-  .version('0.3.0');
+  .version('0.4.0');
 
 const daemon = program.command('daemon').description('Manage the ClaudeKeeper daemon');
 
 daemon
   .command('start')
-  .description('Start the daemon and keep the Mac awake (including with the lid closed)')
-  .option('--no-lid', 'skip lid-close prevention (idle-sleep only, no sudo)')
+  .description('Start the daemon and keep your Mac awake (no admin needed)')
+  .option('--lid', 'also stay awake with the lid closed (needs admin once)')
   .action((opts) => daemonStart({ lid: opts.lid }));
 
 daemon

@@ -50,15 +50,17 @@ Requires macOS and Node.js 18 or newer.
 ## Quick start
 
 ```bash
-claudekeeper daemon start     # start the daemon and keep the Mac awake (incl. lid closed)
+claudekeeper daemon start     # keep your Mac awake — no admin needed
 ```
 
 That's it. Start the daemon, then run Claude Code however you normally do — in a
 terminal, an IDE, wherever. The daemon keeps your Mac from sleeping so Claude
-keeps working, even when you close the laptop.
+keeps working while you're away from the keyboard. It prints the port it's
+serving on and needs **no admin**.
 
-`daemon start` prints the port it's serving on and asks for `sudo` once (to
-disable lid-close sleep — see [Keeping the lid closed](#keeping-the-lid-closed)).
+To also keep running with the lid *physically closed* on the built-in display,
+add `--lid` (needs admin once — macOS requires it). With an external display +
+power you don't even need that: close the lid and it keeps running (clamshell).
 When you're done:
 
 ```bash
@@ -70,8 +72,8 @@ claudekeeper uninstall        # stop, restore sleep, remove the launchd agent + 
 
 | Command                          | What it does                                                          |
 | -------------------------------- | -------------------------------------------------------------------- |
-| `claudekeeper daemon start`      | Start the daemon; keep the Mac awake, including with the lid closed.  |
-| `claudekeeper daemon start --no-lid` | Same, but idle-sleep prevention only — no `sudo`, no lid-close.   |
+| `claudekeeper daemon start`      | Keep your Mac awake so Claude keeps running. No admin needed.         |
+| `claudekeeper daemon start --lid` | Also stay awake with the lid closed (needs admin once).             |
 | `claudekeeper daemon stop`       | Stop the daemon and restore normal sleep.                            |
 | `claudekeeper uninstall`         | Stop, restore sleep, and remove ClaudeKeeper.                        |
 
