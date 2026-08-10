@@ -27,6 +27,8 @@ body {
   font-size: 16px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  /* a thin orange accent line across the very top */
+  border-top: 2px solid var(--orange);
 }
 
 ::selection { background: rgba(217, 119, 87, 0.30); }
@@ -76,6 +78,7 @@ a { color: inherit; text-decoration: none; }
 }
 .dot.off { background: var(--red); }
 .dot.idle { background: var(--faint); }
+.pill.on { color: var(--orange); border-color: rgba(217, 119, 87, 0.45); }
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
@@ -93,6 +96,7 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: -0.03em;
   max-width: 20ch;
 }
+.headline .hl { color: var(--orange); }
 .lede {
   margin: 18px 0 0;
   font-size: 17px;

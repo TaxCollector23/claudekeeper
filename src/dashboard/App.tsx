@@ -55,7 +55,7 @@ export function App() {
 function StatusPill({ state }: { state: Load['state'] }) {
   if (state === 'ok') {
     return (
-      <span className="pill" role="status" aria-label="Daemon running">
+      <span className="pill on" role="status" aria-label="Daemon running">
         <span className="dot on" aria-hidden="true" />Running
       </span>
     );
@@ -105,7 +105,11 @@ function Status({ status }: { status: SystemStatus }) {
     <>
       <section className="hero">
         <h1 className="headline">
-          {awake ? 'Your Mac is being kept awake.' : 'The keeper is running, but sleep isn’t held.'}
+          {awake ? (
+            <>Your Mac is being kept <span className="hl">awake</span>.</>
+          ) : (
+            'The keeper is running, but sleep isn’t held.'
+          )}
         </h1>
         <p className="lede muted">
           {awake
@@ -121,7 +125,7 @@ function Status({ status }: { status: SystemStatus }) {
       <dl className="facts">
         <Fact label="Status" value="Running" accent />
         <Fact label="Address" value={address} mono />
-        <Fact label="Uptime" value={uptime} mono />
+        <Fact label="Uptime" value={uptime} mono accent />
         <Fact label="Keeping awake" value={awake ? 'Yes' : 'No'} accent={awake} />
         <Fact
           label="Close the lid"
