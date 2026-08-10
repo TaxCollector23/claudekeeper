@@ -3,13 +3,18 @@ import { daemonStart, daemonStop } from './commands/daemon.js';
 import { uninstallCommand } from './commands/uninstall.js';
 
 const orange = (s: string) => `\x1b[38;2;217;119;87m${s}\x1b[0m`;
+const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 
 function usage(): string {
+  const row = (cmd: string, desc: string) =>
+    `  ${orange(cmd)}${' '.repeat(Math.max(2, 30 - cmd.length))}${dim(desc)}`;
   return [
     '',
     `  ${orange('ClaudeKeeper')}`,
     '',
-    `  Run:  ${orange('claudekeeper daemon start')}`,
+    row('claudekeeper daemon start', 'keep your Mac awake'),
+    row('claudekeeper daemon stop', 'let it sleep again'),
+    row('claudekeeper uninstall', 'remove it'),
     '',
   ].join('\n');
 }
