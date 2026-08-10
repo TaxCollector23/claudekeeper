@@ -54,7 +54,20 @@ async function main() {
   const startedAt = new Date().toISOString();
   const app = await buildServer({ sessions, bus, claude, sleep, startedAt, port: config.port });
 
-  await app.listen({ host: config.host, port: config.port });
+  try {
+    await app.listen({ host: config.host, port: config.port });
+  } catch (err: any) {
+    if (err && err.code === 'EADDRINUSE') {
+      console.error(
+        `Port ${config.port} is already in use. Another ClaudeKeeper daemon may be running ` +
+          `(try \`claudekeeper status\`), or change the port with ` +
+          `\`claudekeeper config set port ${config.port + 1}\`.`
+      );
+      try { fs.unlinkSync(PID_FILE); } catch { /* ignore */ }
+      process.exit(1);
+    }
+    throw err;
+  }
   console.log(`[claudekeeper] daemon listening on http://${config.host}:${config.port}`);
 
   const stopLogRotation = startLogRotation(logRepo, config);
@@ -64,11 +77,12 @@ async function main() {
     stopLogRotation();
     notifier.stop();
     sleep.releaseAll();
-    try {
-      await app.close();
-    } catch {
-      /* ignore */
-    }
+    let timedOut = false;
+    const closePromise = app.close().catch(() => { /* ignore */ });
+    const timeoutPromise = new Promise<void>((resolve) =>
+      setTimeout(() => { timedOut = true; resolve(); }, 3000).unref()
+    );
+    await Promise.race([closePromise, timeoutPromise]);
     try {
       db.close();
     } catch {
@@ -79,6 +93,8 @@ async function main() {
     } catch {
       /* ignore */
     }
+    if (timedOut) console.log('[claudekeeper] forced shutdown after timeout');
+    else console.log('[claudekeeper] clean shutdown');
     process.exit(0);
   };
   process.on('SIGINT', () => void shutdown('SIGINT'));

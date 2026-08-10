@@ -49,6 +49,10 @@ export async function buildServer(deps: ServerDeps) {
 
   let lastPower: PowerState = { source: 'unknown', batteryPercent: null, charging: false };
   let lastLid: LidState = 'unknown';
+  let lastBatteryLowEmit = 0;
+  let lastActiveCount = 0;
+  const BATTERY_LOW_THRESHOLD = 15;
+  const BATTERY_LOW_DEBOUNCE_MS = 5 * 60 * 1000;
 
   const refreshSystem = async () => {
     const [power, lid] = await Promise.all([readPowerState(), readLidState()]);
@@ -59,6 +63,26 @@ export async function buildServer(deps: ServerDeps) {
     if (lid !== lastLid) {
       lastLid = lid;
       deps.bus.emit({ type: 'lid.changed', state: lid });
+    }
+    const activeCount = deps.sessions.activeCount();
+    const transitionedToActive = lastActiveCount === 0 && activeCount > 0;
+    if (transitionedToActive) lastBatteryLowEmit = 0;
+    lastActiveCount = activeCount;
+    if (
+      activeCount > 0 &&
+      lastPower.source === 'battery' &&
+      lastPower.batteryPercent !== null &&
+      lastPower.batteryPercent < BATTERY_LOW_THRESHOLD
+    ) {
+      const now = Date.now();
+      if (now - lastBatteryLowEmit >= BATTERY_LOW_DEBOUNCE_MS) {
+        lastBatteryLowEmit = now;
+        deps.bus.emit({
+          type: 'battery.low',
+          batteryPercent: lastPower.batteryPercent,
+          activeSessionCount: activeCount,
+        });
+      }
     }
   };
   await refreshSystem();

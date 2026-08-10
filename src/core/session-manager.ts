@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid';
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import type { EventBus } from './events.js';
 import type { ClaudeAdapter } from './claude-adapter.js';
 import type { SessionRepository, EventRepository, LogRepository } from '../database/repositories.js';
@@ -60,6 +61,7 @@ export class SessionManager {
   }
 
   async startSession(input: StartSessionInput): Promise<Session> {
+    assertProjectDirExists(input.projectPath);
     const id = `ck_${nanoid(12)}`;
     let session = this.repo.create({
       id,
@@ -91,6 +93,7 @@ export class SessionManager {
     const s = this.repo.get(id);
     if (!s) return null;
     if (this.running.has(id)) return s;
+    assertProjectDirExists(s.projectPath);
 
     let started;
     if (s.claudeSessionId) {
@@ -139,7 +142,10 @@ export class SessionManager {
   reconcileOnStartup(): void {
     const active = this.repo.activeSessions();
     for (const s of active) {
-      const alive = s.pid !== null && this.processAlive(s.pid);
+      const alive =
+        s.pid !== null &&
+        this.processAlive(s.pid) &&
+        !pidLooksReused(s.pid, s.startedAt);
       if (alive && s.pid !== null) {
         // Re-attach — Claude survived because we spawned detached.
         this.attachRunning(s, s.pid, s.logPath ?? null);
@@ -252,6 +258,50 @@ export class SessionManager {
     this.events.append(session.id, 'session.status_changed', { from: session.status, to: next });
     this.bus.emit({ type: 'session.status_changed', sessionId: session.id, status: next });
   }
+}
+
+export function assertProjectDirExists(projectPath: string): void {
+  let st;
+  try {
+    st = fs.statSync(projectPath);
+  } catch {
+    throw new Error(`Project path ${projectPath} does not exist`);
+  }
+  if (!st.isDirectory()) {
+    throw new Error(`Project path ${projectPath} does not exist`);
+  }
+}
+
+/**
+ * Detect if the PID has been reused by an unrelated process. Compares the
+ * process's start time (via `ps -o lstart=`) against session.startedAt. If the
+ * process started more than 2 minutes AFTER the session did, it's a different
+ * process wearing the same PID (a common outcome after a reboot).
+ *
+ * On any failure (ps missing, unparseable output), returns false — we default
+ * to "assume it's ours" rather than mark a live session dead by mistake.
+ */
+export function pidLooksReused(
+  pid: number,
+  sessionStartedAt: string,
+  execFn: (cmd: string, args: string[]) => string = defaultExec
+): boolean {
+  try {
+    const out = execFn('ps', ['-o', 'lstart=', '-p', String(pid)]).trim();
+    if (!out) return false;
+    const procStartMs = Date.parse(out);
+    if (Number.isNaN(procStartMs)) return false;
+    const sessionMs = Date.parse(sessionStartedAt);
+    if (Number.isNaN(sessionMs)) return false;
+    // 2 minutes of slack accounts for clock jitter and lstart's second-level resolution.
+    return procStartMs - sessionMs > 2 * 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
+function defaultExec(cmd: string, args: string[]): string {
+  return execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 }
 
 /**

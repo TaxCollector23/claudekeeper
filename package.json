@@ -3,9 +3,32 @@
   "version": "0.1.0",
   "description": "Local supervisor for Claude Code — keeps sessions running and the Mac awake.",
   "type": "module",
+  "license": "MIT",
+  "author": "ClaudeKeeper Contributors",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/claudekeeper/claudekeeper.git"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "cli",
+    "supervisor",
+    "macos"
+  ],
   "bin": {
     "claudekeeper": "./bin/claudekeeper.mjs"
   },
+  "files": [
+    "dist",
+    "bin",
+    "launchd",
+    "native/build",
+    "scripts/install.sh",
+    "scripts/uninstall.sh",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "daemon": "tsx src/daemon/index.ts",
     "cli": "tsx src/cli/index.ts",
@@ -15,7 +38,8 @@
     "typecheck": "tsc --noEmit",
     "start": "node dist/daemon/index.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",

@@ -72,4 +72,5 @@ export type KeeperEvent =
   | { type: 'session.stopped'; sessionId: string }
   | { type: 'lid.changed'; state: LidState }
   | { type: 'power.changed'; state: PowerState }
-  | { type: 'sleep_assertion.changed'; active: boolean; reasons: number };
+  | { type: 'sleep_assertion.changed'; active: boolean; reasons: number }
+  | { type: 'battery.low'; batteryPercent: number; activeSessionCount: number };

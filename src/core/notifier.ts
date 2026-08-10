@@ -54,6 +54,11 @@ export class Notifier {
         body = `session ${shortId(event.sessionId)} crashed${event.error ? `: ${event.error}` : ''}`;
         break;
       }
+      case 'battery.low': {
+        title = 'Claude on low battery';
+        body = `${event.batteryPercent}% remaining — plug in to keep going.`;
+        break;
+      }
       default:
         return;
     }

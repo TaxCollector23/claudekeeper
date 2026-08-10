@@ -37,8 +37,40 @@ export async function daemonStart() {
       return;
     }
   }
+  // Daemon failed to come up. If the err log's tail mentions EADDRINUSE or the
+  // friendly port-in-use line, surface it inline so the user sees an actionable
+  // message instead of "check the log".
+  const errLog = path.join(LOG_DIR, 'daemon.err.log');
+  const tail = tailFile(errLog, 4096);
+  if (tail && /EADDRINUSE|already in use/i.test(tail)) {
+    const lines = tail.split('\n').filter((l) => l.trim().length > 0);
+    const line =
+      lines.reverse().find((l) => /already in use/i.test(l)) ??
+      lines[lines.length - 1] ??
+      'Port already in use';
+    console.error(`${pc.red('✕')} ${line.trim()}`);
+    process.exit(1);
+  }
   console.error(`${pc.red('✕')} daemon didn't respond; check ${LOG_DIR}/daemon.err.log`);
   process.exit(1);
+}
+
+function tailFile(p: string, bytes: number): string | null {
+  try {
+    const st = fs.statSync(p);
+    const start = Math.max(0, st.size - bytes);
+    const fd = fs.openSync(p, 'r');
+    try {
+      const len = st.size - start;
+      const buf = Buffer.alloc(len);
+      fs.readSync(fd, buf, 0, len, start);
+      return buf.toString('utf8');
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch {
+    return null;
+  }
 }
 
 export async function daemonStop() {

@@ -1,6 +1,57 @@
 # ClaudeKeeper
 
-Local supervisor for Claude Code. Keep Claude working — even when your terminal, dashboard, or browser closes. macOS only.
+Local supervisor for Claude Code. Keep Claude working.
+
+<!-- TODO: dashboard screenshot -->
+
+macOS. Node 20+. MIT.
+
+---
+
+## Why
+
+Claude Code is a foreground process tied to your terminal. Close the tab, the
+session dies. Let the machine sleep, the session stalls. Nothing outside that
+window knows whether Claude is still working, has finished, or has crashed.
+
+ClaudeKeeper is a small local daemon that owns Claude Code sessions on your
+behalf. It spawns Claude detached from your terminal, holds a sleep assertion
+while work is running, streams logs to disk, and exposes an HTTP + SSE API for
+a CLI and a browser dashboard. Terminal-independent. Honest about power and
+lid state instead of pretending everything is fine.
+
+## Install
+
+Dev install from source:
+
+```bash
+git clone https://github.com/claudekeeper/claudekeeper
+cd claudekeeper
+npm install
+npm run build
+./scripts/install.sh
+```
+
+Eventually (not yet published):
+
+```bash
+curl -fsSL https://claudekeeper.dev/install.sh | sh
+```
+
+Requires macOS and Node.js 20 or newer.
+
+## Quick start
+
+```bash
+claudekeeper doctor                  # sanity check
+claudekeeper run                     # start Claude in current dir, under the daemon
+claudekeeper status                  # daemon + sessions + power/lid
+claudekeeper sessions                # full list, all-time
+claudekeeper dashboard               # open http://localhost:7642
+```
+
+`claudekeeper run` streams live output. `Ctrl+C` **detaches** — the session
+keeps running inside the daemon. Reattach with `claudekeeper logs <id> -f`.
 
 ## Architecture
 
@@ -18,90 +69,97 @@ Local supervisor for Claude Code. Keep Claude working — even when your termina
                  launchd
 ```
 
-The daemon is the source of truth. The CLI and dashboard are clients. Closing either does not stop Claude.
+**The one rule:** the daemon owns Claude. The CLI and dashboard are clients.
+Never bypass the daemon. See [ARCHITECTURE.md](./ARCHITECTURE.md) for detail.
 
-## Install (dev)
+## Commands
 
-Requires macOS, Node.js ≥ 20.
-
-```bash
-npm install
-npm run build           # compiles daemon + dashboard
-./scripts/install.sh    # registers launchd agent + symlinks /usr/local/bin/claudekeeper
-claudekeeper doctor
-```
-
-Uninstall:
-
-```bash
-./scripts/uninstall.sh
-```
-
-## Quick start
-
-```bash
-claudekeeper daemon start          # once, unless installed via launchd
-claudekeeper run                   # starts Claude Code in the current dir under the daemon
-claudekeeper status                # daemon + sessions + power/lid/sleep
-claudekeeper sessions              # full list
-claudekeeper logs <session-id> -f  # follow logs live
-claudekeeper stop <session-id>
-claudekeeper dashboard             # opens http://localhost:7642
-```
-
-`claudekeeper run` streams live output. Ctrl+C **detaches** — the session keeps running in the daemon.
-
-## What's implemented
-
-- Daemon with Fastify HTTP + SSE, binds `127.0.0.1:7642`
-- SQLite persistence (`~/Library/Application Support/ClaudeKeeper/claudekeeper.db`)
-- Session manager with explicit state machine (`starting → working → completed|failed|crashed|stopped`)
-- Reference-counted sleep assertion via `caffeinate -dimsu` — held while any managed session is active, released when the last one ends
-- Power source and battery detection (`pmset`), lid detection (`ioreg AppleClamshellState`), 5 s poll
-- Startup reconciliation: sessions left running from a previous daemon run are checked via `kill(pid, 0)` and marked `interrupted` if the process is gone
-- CLI: `run`, `status`, `sessions`, `logs`, `stop`, `doctor`, `dashboard`, `daemon {start,stop,restart}`
-- Dashboard: overview (system + active + recent), sessions list with filter, session detail with live SSE-driven log stream
-- launchd plist template + install/uninstall scripts
-
-## Honest caveats
-
-- **Sleep and the closed lid.** macOS restricts continued operation with the lid closed on some hardware. This build uses `caffeinate -dimsu`, which prevents *idle* sleep and disk sleep. It does **not** guarantee operation with the lid closed on unsupported machines. The dashboard reports lid state and sleep assertion state separately so you can see the actual situation rather than a fiction.
-- **v1 packaging.** The spec calls for a full pnpm monorepo (`apps/*`, `packages/*`). This build consolidates into a single Node package with clean module boundaries at `src/{shared,database,macos,core,daemon,cli,dashboard}`. Splitting into workspaces later is mechanical.
-- **No native macOS helper yet.** IOKit `IOPMAssertionCreateWithName` via a small Swift/ObjC helper is planned; `caffeinate` is the pragmatic fallback and is what Apple ships for this purpose.
-- **No automatic Claude session resume yet.** Interrupted sessions are marked `interrupted`; the `resume` CLI command is a follow-up.
-- **Notifications, log rotation, config CLI, tests** — scaffolding is in place (`src/macos/system.ts` `notify`, `LogRepository.purgeOlderThan`, `loadConfig`) but not fully wired to every event.
+| Command                         | What it does                                                   |
+| ------------------------------- | -------------------------------------------------------------- |
+| `claudekeeper run [args...]`    | Start a Claude session in the current dir under the daemon.    |
+| `claudekeeper status`           | Daemon health, active sessions, power source, lid, assertion.  |
+| `claudekeeper sessions`         | List all sessions (any status).                                |
+| `claudekeeper logs <id> [-f]`   | Print or follow a session's log stream.                        |
+| `claudekeeper stop <id>`        | Signal a session to stop.                                      |
+| `claudekeeper resume <id>`      | Resume an interrupted session via Claude `--resume`.           |
+| `claudekeeper dashboard`        | Open the web dashboard.                                        |
+| `claudekeeper doctor`           | Diagnose Node, Claude, daemon, port, and permissions.          |
+| `claudekeeper config [get\|set]`| Read or write `~/.config/claudekeeper/config.json`.            |
+| `claudekeeper daemon {start\|stop\|restart}` | Manage the daemon directly (bypasses launchd).    |
 
 ## Configuration
 
 `~/.config/claudekeeper/config.json`:
 
-```json
-{
-  "port": 7642,
-  "host": "127.0.0.1",
-  "preventSleep": true,
-  "notifications": true,
-  "logRetentionDays": 7,
-  "autoResume": false
-}
+| Key                | Type    | Default       | Meaning                                              |
+| ------------------ | ------- | ------------- | ---------------------------------------------------- |
+| `port`             | number  | `7642`        | HTTP + SSE port.                                     |
+| `host`             | string  | `127.0.0.1`   | Bind address. Keep loopback unless you know why.     |
+| `preventSleep`     | boolean | `true`        | Hold a sleep assertion while sessions are running.   |
+| `notifications`    | boolean | `true`        | macOS notifications on completion / failure.         |
+| `logRetentionDays` | number  | `7`           | Days of session logs to keep. `0` disables purging.  |
+| `autoResume`       | boolean | `false`       | Auto-resume `interrupted` sessions at daemon start.  |
+
+## How it survives closures
+
+- **Terminal closes.** Sessions are spawned detached, with their own stdio piped
+  to per-session log files. The daemon holds the PID; the terminal is optional.
+- **Dashboard closes.** The dashboard is a client of the HTTP + SSE API. It has
+  no session state of its own. Close it, reopen it — nothing changes.
+- **Daemon restarts.** On startup the daemon reads sessions from SQLite,
+  probes each recorded PID with `kill(pid, 0)`, re-attaches to log tails for
+  live PIDs, and marks the rest `interrupted`.
+
+## Sleep behavior
+
+ClaudeKeeper reference-counts sleep assertions: acquires one when the first
+session starts working, releases it when the last one ends. The dashboard
+surfaces the assertion state so you can see the reality rather than a claim.
+
+Two backends:
+
+- **`caffeinate -dimsu`** (default). Ships with macOS. Prevents idle sleep,
+  display sleep, disk sleep, and system sleep on AC. Does **not** guarantee
+  operation with the lid closed on unsupported hardware.
+- **Native IOKit helper** (`native/ClaudeKeeperPower`, when built). A tiny
+  Swift binary that calls `IOPMAssertionCreateWithName`. Same intent, one
+  fewer subprocess, and easier to attribute in `pmset -g assertions`.
+
+Lid state is polled from `ioreg AppleClamshellState` and reported separately.
+If your Mac cannot run with the lid closed, closing it will still sleep. We
+show you the truth instead of pretending.
+
+## Troubleshooting
+
+- **Port 7642 already in use.** `lsof -iTCP:7642 -sTCP:LISTEN`. Kill the
+  offender, or set `port` in `~/.config/claudekeeper/config.json` and restart
+  the daemon.
+- **Claude Code not found.** `claudekeeper doctor` prints where it looked.
+  Install Claude Code, or add its dir to your login shell `PATH` (launchd
+  inherits from `launchctl setenv`, not from `.zshrc`).
+- **Daemon won't start.** Check `~/Library/Logs/ClaudeKeeper/daemon.err.log`.
+  Common causes: stale PID file at `~/Library/Application Support/ClaudeKeeper/daemon.pid`,
+  another daemon on the port, missing `dist/` (run `npm run build`).
+- **Sessions disappearing from the list.** They aren't — they moved to
+  `completed`, `failed`, `crashed`, `stopped`, or `interrupted`. The default
+  view filters to active. Use `claudekeeper sessions` or the dashboard's
+  "All" filter.
+- **Reinstall from scratch.** `./scripts/uninstall.sh && ./scripts/install.sh`.
+
+## Development
+
+```bash
+npm install
+npm run typecheck        # tsc --noEmit
+npm run test             # vitest run (112 tests)
+npm run build            # daemon + dashboard
+npm run daemon           # run the daemon in foreground via tsx
+npm run dashboard:dev    # vite dev server for the dashboard
 ```
 
-## Layout
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the internals and
+[CONTRIBUTING.md](./CONTRIBUTING.md) for the PR flow.
 
-```
-src/
-  shared/     types, constants, config
-  database/   SQLite client + repositories
-  macos/      power, lid, notifications
-  core/       event bus, claude adapter, session manager, state machine
-  daemon/     fastify server + lifecycle
-  cli/        commander CLI
-  dashboard/  React + Vite
-launchd/      com.claudekeeper.daemon.plist template
-scripts/      install.sh, uninstall.sh
-bin/          claudekeeper.mjs entry point
-```
+## License
 
-## The one architectural rule
-
-The CLI and the dashboard are clients. The daemon owns Claude. Never bypass it.
+MIT. See [LICENSE](./LICENSE).
